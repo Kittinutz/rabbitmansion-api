@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
-import { RoomType, RoomStatus, Prisma } from '../generated/prisma';
+import { RoomType, RoomStatus, Prisma } from '../prisma/generated/prisma';
 
 export interface CreateRoomDto {
   roomNumber: string;
@@ -33,7 +33,7 @@ export interface RoomFilter {
 
 @Injectable()
 export class RoomService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async createRoom(data: CreateRoomDto) {
     // Validate room number format
@@ -56,9 +56,24 @@ export class RoomService {
 
     return this.prisma.room.create({
       data: {
-        ...data,
+        roomNumber: data.roomNumber,
+        roomType: data.roomType,
         floor,
+        basePrice: data.price || 2500, // Use provided price or default
+        name: {
+          en: `${data.roomType} Room ${data.roomNumber}`,
+          th: `ห้อง ${data.roomType} ${data.roomNumber}`,
+        },
+        description: {
+          en:
+            data.description ||
+            `Comfortable ${data.roomType.toLowerCase()} room`,
+          th:
+            data.description ||
+            `ห้อง ${data.roomType.toLowerCase()} ที่สะดวกสบาย`,
+        },
         amenities: data.amenities || [],
+        status: data.status || 'AVAILABLE',
       },
     });
   }
@@ -76,12 +91,12 @@ export class RoomService {
       where.floor = filter.floor;
     }
     if (filter?.priceMin || filter?.priceMax) {
-      where.price = {};
+      where.basePrice = {};
       if (filter.priceMin) {
-        where.price.gte = filter.priceMin;
+        where.basePrice.gte = filter.priceMin;
       }
       if (filter.priceMax) {
-        where.price.lte = filter.priceMax;
+        where.basePrice.lte = filter.priceMax;
       }
     }
 
@@ -91,7 +106,7 @@ export class RoomService {
     });
   }
 
-  async getRoomById(id: number) {
+  async getRoomById(id: string) {
     const room = await this.prisma.room.findUnique({
       where: { id },
     });
@@ -115,7 +130,7 @@ export class RoomService {
     return room;
   }
 
-  async updateRoom(id: number, data: UpdateRoomDto) {
+  async updateRoom(id: string, data: UpdateRoomDto) {
     await this.getRoomById(id); // Check if room exists
 
     return this.prisma.room.update({
@@ -127,7 +142,7 @@ export class RoomService {
     });
   }
 
-  async deleteRoom(id: number) {
+  async deleteRoom(id: string) {
     await this.getRoomById(id); // Check if room exists
 
     return this.prisma.room.delete({
@@ -156,7 +171,7 @@ export class RoomService {
     });
   }
 
-  async updateRoomStatus(id: number, status: RoomStatus) {
+  async updateRoomStatus(id: string, status: RoomStatus) {
     return this.updateRoom(id, { status });
   }
 
@@ -166,7 +181,9 @@ export class RoomService {
       roomType: RoomType;
       floor: number;
       status: RoomStatus;
-      price: number;
+      basePrice: number;
+      name: { en: string; th: string };
+      description: { en: string; th: string };
       amenities: string[];
     }> = [];
 
@@ -178,11 +195,11 @@ export class RoomService {
         // Assign room types based on floor
         let roomType: RoomType;
         if (floor === 1) {
-          roomType = 'STANDARD_OPPOSITE_POOL' as RoomType;
+          roomType = 'STANDARD' as RoomType;
         } else if (floor === 2) {
-          roomType = 'DOUBLE_BED' as RoomType;
+          roomType = 'DELUXE' as RoomType;
         } else {
-          roomType = 'SUPERIOR' as RoomType;
+          roomType = 'SUITE' as RoomType;
         }
 
         roomsToCreate.push({
@@ -190,7 +207,15 @@ export class RoomService {
           roomType,
           floor,
           status: 'AVAILABLE' as RoomStatus,
-          price: this.getDefaultPrice(roomType),
+          basePrice: this.getDefaultPrice(roomType),
+          name: {
+            en: `${roomType} Room ${roomNumber}`,
+            th: `ห้อง ${roomType} ${roomNumber}`,
+          },
+          description: {
+            en: `Comfortable ${roomType.toLowerCase()} room`,
+            th: `ห้อง ${roomType.toLowerCase()} ที่สะดวกสบาย`,
+          },
           amenities: this.getDefaultAmenities(roomType),
         });
       }
@@ -229,12 +254,18 @@ export class RoomService {
 
   private getDefaultPrice(roomType: RoomType): number {
     switch (roomType) {
-      case 'STANDARD_OPPOSITE_POOL':
+      case 'STANDARD':
         return 2500;
-      case 'DOUBLE_BED':
+      case 'DELUXE':
+        return 3500;
+      case 'SUITE':
+        return 5500;
+      case 'PRESIDENTIAL':
+        return 8500;
+      case 'FAMILY':
+        return 4500;
+      case 'ACCESSIBLE':
         return 3000;
-      case 'SUPERIOR':
-        return 4000;
       default:
         return 2500;
     }
@@ -249,11 +280,11 @@ export class RoomService {
     ];
 
     switch (roomType) {
-      case 'STANDARD_OPPOSITE_POOL':
-        return [...baseAmenities, 'Pool View', 'Balcony'];
-      case 'DOUBLE_BED':
-        return [...baseAmenities, 'King Size Bed', 'Mini Fridge'];
-      case 'SUPERIOR':
+      case 'STANDARD':
+        return [...baseAmenities];
+      case 'DELUXE':
+        return [...baseAmenities, 'Mini Fridge', 'Balcony'];
+      case 'SUITE':
         return [
           ...baseAmenities,
           'King Size Bed',
@@ -261,6 +292,33 @@ export class RoomService {
           'City View',
           'Room Service',
           'Safe Box',
+          'Living Area',
+        ];
+      case 'PRESIDENTIAL':
+        return [
+          ...baseAmenities,
+          'King Size Bed',
+          'Mini Fridge',
+          'Ocean View',
+          'Room Service',
+          'Safe Box',
+          'Living Area',
+          'Jacuzzi',
+          'Butler Service',
+        ];
+      case 'FAMILY':
+        return [
+          ...baseAmenities,
+          'Extra Beds',
+          'Mini Fridge',
+          'Family Entertainment',
+        ];
+      case 'ACCESSIBLE':
+        return [
+          ...baseAmenities,
+          'Wheelchair Access',
+          'Accessible Bathroom',
+          'Emergency Call System',
         ];
       default:
         return baseAmenities;

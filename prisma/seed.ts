@@ -165,50 +165,10 @@ async function seedRooms() {
   }
 }
 
-async function seedUsers() {
-  console.log('\n👥 Seeding sample users...');
-
-  try {
-    // Clear existing users and posts
-    await prisma.post.deleteMany({});
-    await prisma.user.deleteMany({});
-
-    // Create sample users
-    const users = [
-      {
-        email: 'admin@rabbitmansion.com',
-        name: 'Hotel Administrator',
-      },
-      {
-        email: 'manager@rabbitmansion.com',
-        name: 'Hotel Manager',
-      },
-      {
-        email: 'guest1@example.com',
-        name: 'John Smith',
-      },
-      {
-        email: 'guest2@example.com',
-        name: 'Jane Doe',
-      },
-    ];
-
-    for (const userData of users) {
-      await prisma.user.create({ data: userData });
-    }
-
-    console.log(`✅ Created ${users.length} sample users`);
-  } catch (error) {
-    console.error('❌ Error seeding users:', error);
-    throw error;
-  }
-}
-
 async function main() {
   console.log('🚀 Starting database seeding...');
 
   try {
-    await seedUsers();
     await seedRooms();
 
     console.log('\n🎉 Database seeding completed successfully!');
@@ -246,4 +206,4 @@ if (require.main === module) {
   });
 }
 
-export { main as seedDatabase, seedRooms, seedUsers };
+export { main as seedDatabase, seedRooms };

@@ -1,0 +1,12 @@
+// Base schema configuration for multi-file Prisma setup
+// This file contains the generator and datasource configuration
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}

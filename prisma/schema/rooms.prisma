@@ -1,0 +1,92 @@
+// Room Management Models
+// Hotel rooms, images, and maintenance tracking
+
+// Hotel Rooms - Core inventory with multi-language support
+model Room {
+  id              String     @id @default(cuid())
+  roomNumber      String     @unique // "101", "A-205", etc.
+  roomType        RoomType
+  status          RoomStatus @default(AVAILABLE)
+  floor           Int
+  maxOccupancy    Int        @default(2)
+  bedCount        Int        @default(1)
+  bedType         String?    // "King", "Queen", "Twin", "Sofa Bed"
+  basePrice       Float      // Base nightly rate
+  seasonalPricing Json?      // {"peak": 1.5, "low": 0.8} multipliers
+  
+  // Room Features
+  size            Float?     // Room size in square meters
+  view            String?    // "Ocean", "City", "Garden", "Pool"
+  smokingAllowed  Boolean    @default(false)
+  petFriendly     Boolean    @default(false)
+  accessible      Boolean    @default(false) // ADA compliance
+  
+  // Multi-language Content Support
+  name            Json       // {"en": "Deluxe Room", "th": "ห้องดีลักซ์"}
+  description     Json       // Multi-language room descriptions
+  amenities       String[]   // ["wifi", "minibar", "balcony", "jacuzzi"]
+  
+  // Media & Visual Content
+  mainImage       String?    // Primary room photo URL
+  galleryImages   String[]   // Additional room photos
+  bannerImage     String?    // Featured banner image
+  
+  // Maintenance & Operations
+  lastCleaned     DateTime?
+  lastMaintenance DateTime?
+  notes           String?    // Staff notes about room conditions
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations - Room activities and content
+  bookings        Booking[]
+  roomImages      RoomImage[]
+  maintenanceLogs MaintenanceLog[]
+
+  @@index([status])
+  @@index([roomType])
+  @@index([floor])
+  @@index([isActive])
+  @@map("rooms")
+}
+
+// Room Images - Media management for rooms
+model RoomImage {
+  id        String   @id @default(cuid())
+  roomId    String
+  url       String   // Image URL or file path
+  alt       String?  // Alt text for accessibility
+  caption   Json?    // {"en": "Ocean view", "th": "วิวทะเล"}
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  // Relations
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@map("room_images")
+}
+
+// Room Maintenance Tracking
+model MaintenanceLog {
+  id          String   @id @default(cuid())
+  roomId      String
+  type        String   // "Cleaning", "Repair", "Inspection", "Renovation"
+  description String   // Detailed description of work performed
+  cost        Float?   // Cost of maintenance/repair
+  performedBy String   // Staff member or contractor name
+  startTime   DateTime // When maintenance started
+  endTime     DateTime? // When maintenance completed
+  isCompleted Boolean  @default(false)
+  notes       String?  // Additional notes or observations
+  createdAt   DateTime @default(now())
+
+  // Relations
+  room        Room     @relation(fields: [roomId], references: [id])
+
+  @@index([roomId])
+  @@index([isCompleted])
+  @@index([type])
+  @@map("maintenance_logs")
+}

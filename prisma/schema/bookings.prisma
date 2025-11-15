@@ -1,0 +1,57 @@
+// Booking and Reservation Models
+// Complete booking lifecycle management
+
+// Hotel Bookings - Core reservation system
+model Booking {
+  id              String        @id @default(cuid())
+  bookingNumber   String        @unique // "BK-2024-001234"
+  guestId         String
+  roomId          String
+  
+  // Stay Dates & Timeline
+  checkInDate     DateTime
+  checkOutDate    DateTime
+  actualCheckIn   DateTime?     // Actual check-in time
+  actualCheckOut  DateTime?     // Actual check-out time
+  
+  // Guest Information
+  numberOfGuests  Int           @default(1)
+  numberOfChildren Int          @default(0)
+  specialRequests String?       // Dietary restrictions, accessibility needs
+  
+  // Financial Information
+  roomRate        Float         // Rate at time of booking (preserves historical pricing)
+  totalAmount     Float         // Total booking amount
+  taxAmount       Float         @default(0)
+  serviceCharges  Float         @default(0)
+  discountAmount  Float         @default(0)
+  finalAmount     Float         // Amount after discounts/taxes
+  
+  // Status
+  status          BookingStatus @default(PENDING)
+  
+  // Metadata
+  source          String?       // Website, Phone, Walk-in, etc.
+  notes           String?
+  cancellationReason String?
+  createdById     String?       // Admin who created booking
+  updatedById     String?       // Admin who last updated
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  guest           Guest         @relation(fields: [guestId], references: [id])
+  room            Room          @relation(fields: [roomId], references: [id])
+  createdBy       Admin?        @relation("AdminCreatedBookings", fields: [createdById], references: [id])
+  updatedBy       Admin?        @relation("AdminUpdatedBookings", fields: [updatedById], references: [id])
+  payments        Payment[]
+  services        BookingService[]
+  reviews         Review[]
+
+  @@index([checkInDate])
+  @@index([checkOutDate])
+  @@index([status])
+  @@index([guestId])
+  @@index([roomId])
+  @@map("bookings")
+}

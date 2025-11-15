@@ -1,0 +1,81 @@
+// Enumeration Definitions
+// All enums used across the hotel management system
+
+enum RoomType {
+  STANDARD
+  DELUXE
+  SUITE
+  PRESIDENTIAL
+  FAMILY
+  ACCESSIBLE
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+  OUT_OF_ORDER
+  CLEANING
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIALLY_PAID
+  REFUNDED
+  FAILED
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  DEBIT_CARD
+  CASH
+  BANK_TRANSFER
+  MOBILE_PAYMENT
+}
+
+enum ServiceCategory {
+  ROOM_SERVICE
+  SPA
+  TRANSPORTATION
+  DINING
+  LAUNDRY
+  ENTERTAINMENT
+  BUSINESS
+}
+
+enum ServiceStatus {
+  ACTIVE
+  INACTIVE
+  SEASONAL
+}
+
+enum GuestStatus {
+  ACTIVE
+  BLOCKED
+  VIP
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+}

@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { RoomService } from './room.service';
 import type { CreateRoomDto, UpdateRoomDto, RoomFilter } from './room.service';
-import { RoomType, RoomStatus } from '../generated/prisma';
+import { RoomType, RoomStatus } from '../prisma/generated/prisma';
 
 @Controller('rooms')
 export class RoomController {
@@ -121,21 +121,24 @@ export class RoomController {
   }
 
   @Get(':id')
-  async getRoomById(@Param('id', ParseIntPipe) id: number) {
+  async getRoomById(@Param('id') id: string) {
     return this.roomService.getRoomById(id);
   }
 
   @Put(':id')
   async updateRoom(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() updateRoomDto: UpdateRoomDto,
   ) {
     if (updateRoomDto.roomType) {
       if (
         !Object.values([
-          'DOUBLE_BED',
-          'SUPERIOR',
-          'STANDARD_OPPOSITE_POOL',
+          'STANDARD',
+          'DELUXE',
+          'SUITE',
+          'PRESIDENTIAL',
+          'FAMILY',
+          'ACCESSIBLE',
         ]).includes(updateRoomDto.roomType)
       ) {
         throw new BadRequestException('Invalid room type');
@@ -160,7 +163,7 @@ export class RoomController {
 
   @Put(':id/status')
   async updateRoomStatus(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() body: { status: RoomStatus },
   ) {
     if (
@@ -169,6 +172,7 @@ export class RoomController {
         'OCCUPIED',
         'MAINTENANCE',
         'OUT_OF_ORDER',
+        'CLEANING',
       ]).includes(body.status)
     ) {
       throw new BadRequestException('Invalid room status');
@@ -178,7 +182,7 @@ export class RoomController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteRoom(@Param('id', ParseIntPipe) id: number) {
+  async deleteRoom(@Param('id') id: string) {
     await this.roomService.deleteRoom(id);
   }
 
