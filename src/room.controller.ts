@@ -24,12 +24,42 @@ import {
 } from '@nestjs/swagger';
 import { RoomService } from './room.service';
 import type { CreateRoomDto, UpdateRoomDto, RoomFilter } from './room.service';
-import { RoomType, RoomStatus } from '../prisma/generated/prisma';
+import { RoomStatus } from '../prisma/generated/prisma';
 
 @ApiTags('rooms')
 @Controller('rooms')
 export class RoomController {
   constructor(private readonly roomService: RoomService) {}
+
+  @Get('types')
+  @ApiOperation({
+    summary: 'Get all available room types',
+    description: 'Retrieves all available room types with their details',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Room types retrieved successfully',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          code: { type: 'string' },
+          name: { type: 'object', example: { en: 'Deluxe Double Room with Pool View', th: 'ห้องดีลักซ์ดับเบิลวิวสระ' } },
+          description: { type: 'object' },
+          basePrice: { type: 'number' },
+          capacity: { type: 'number' },
+          bedType: { type: 'string' },
+          hasPoolView: { type: 'boolean' },
+          amenities: { type: 'array', items: { type: 'string' } }
+        }
+      }
+    }
+  })
+  async getAllRoomTypes() {
+    return this.roomService.getAllRoomTypes();
+  }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -43,13 +73,11 @@ export class RoomController {
       type: 'object',
       properties: {
         roomNumber: { type: 'string', example: '101' },
-        roomType: {
-          enum: ['DOUBLE_BED', 'SUPERIOR', 'STANDARD_OPPOSITE_POOL'],
-          example: 'DOUBLE_BED',
+        roomTypeId: { 
+          type: 'string', 
+          example: 'rm_type_1', 
+          description: 'Room Type ID from RoomType table (e.g., DELUXE_DOUBLE_POOL_VIEW)' 
         },
-        floor: { type: 'number', example: 1 },
-        basePrice: { type: 'number', example: 1500.0 },
-        capacity: { type: 'number', example: 2 },
         status: {
           enum: [
             'AVAILABLE',
@@ -60,9 +88,10 @@ export class RoomController {
           ],
           example: 'AVAILABLE',
         },
-        amenityIds: { type: 'array', items: { type: 'string' }, example: [] },
+        basePrice: { type: 'number', example: 2500.0, description: 'Optional: Override room type default price' },
+        amenities: { type: 'array', items: { type: 'string' }, example: ['wifi', 'air_conditioning'], description: 'Optional: Override room type default amenities' },
       },
-      required: ['roomNumber', 'roomType', 'floor', 'basePrice', 'capacity'],
+      required: ['roomNumber', 'roomTypeId'],
     },
   })
   @ApiResponse({
@@ -93,10 +122,10 @@ export class RoomController {
       'Retrieves all hotel rooms with optional filtering by room type, status, floor, and price range',
   })
   @ApiQuery({
-    name: 'roomType',
+    name: 'roomTypeId',
     required: false,
-    enum: ['DOUBLE_BED', 'SUPERIOR', 'STANDARD_OPPOSITE_POOL'],
-    description: 'Filter by room type',
+    type: 'string',
+    description: 'Filter by room type ID (e.g., rm_type_1)',
   })
   @ApiQuery({
     name: 'status',
@@ -145,17 +174,9 @@ export class RoomController {
   async getAllRooms(@Query() query: any) {
     const filter: RoomFilter = {};
 
-    if (query.roomType) {
-      if (
-        !Object.values([
-          'DOUBLE_BED',
-          'SUPERIOR',
-          'STANDARD_OPPOSITE_POOL',
-        ]).includes(query.roomType)
-      ) {
-        throw new BadRequestException('Invalid room type');
-      }
-      filter.roomType = query.roomType as RoomType;
+    if (query.roomTypeId) {
+      // Validate that room type exists
+      filter.roomTypeId = query.roomTypeId;
     }
 
     if (query.status) {
@@ -165,10 +186,13 @@ export class RoomController {
           'OCCUPIED',
           'MAINTENANCE',
           'OUT_OF_ORDER',
+          'CLEANING',
         ]).includes(query.status)
       ) {
         throw new BadRequestException('Invalid room status');
       }
+      filter.status = query.status as RoomStatus;
+    }
       filter.status = query.status as RoomStatus;
     }
 
@@ -231,15 +255,16 @@ export class RoomController {
     return this.roomService.getAvailableRooms();
   }
 
-  @Get('type/:roomType')
+  @Get('type/:roomTypeId')
   @ApiOperation({
-    summary: 'Get rooms by type',
-    description: 'Retrieves all rooms of a specific type',
+    summary: 'Get rooms by type ID',
+    description: 'Retrieves all rooms of a specific type using room type ID',
   })
   @ApiParam({
-    name: 'roomType',
-    enum: ['DOUBLE_BED', 'SUPERIOR', 'STANDARD_OPPOSITE_POOL'],
-    description: 'The type of room to filter by',
+    name: 'roomTypeId',
+    type: 'string',
+    description: 'The ID of the room type to filter by (e.g., rm_type_1)',
+    example: 'rm_type_1',
   })
   @ApiResponse({
     status: 200,
@@ -251,7 +276,7 @@ export class RoomController {
         properties: {
           id: { type: 'string' },
           roomNumber: { type: 'string' },
-          roomType: { type: 'string' },
+          roomType: { type: 'object' },
           floor: { type: 'number' },
           basePrice: { type: 'number' },
           capacity: { type: 'number' },
@@ -260,18 +285,9 @@ export class RoomController {
       },
     },
   })
-  @ApiBadRequestResponse({ description: 'Invalid room type' })
-  async getRoomsByType(@Param('roomType') roomType: string) {
-    if (
-      !Object.values([
-        'DOUBLE_BED',
-        'SUPERIOR',
-        'STANDARD_OPPOSITE_POOL',
-      ]).includes(roomType)
-    ) {
-      throw new BadRequestException('Invalid room type');
-    }
-    return this.roomService.getRoomsByType(roomType as RoomType);
+  @ApiBadRequestResponse({ description: 'Invalid room type ID' })
+  async getRoomsByType(@Param('roomTypeId') roomTypeId: string) {
+    return this.roomService.getRoomsByType(roomTypeId);
   }
 
   @Get('floor/:floor')
@@ -390,13 +406,12 @@ export class RoomController {
       type: 'object',
       properties: {
         roomNumber: { type: 'string', example: '101' },
-        roomType: {
-          enum: ['DOUBLE_BED', 'SUPERIOR', 'STANDARD_OPPOSITE_POOL'],
-          example: 'DOUBLE_BED',
+        roomTypeId: { 
+          type: 'string', 
+          example: 'rm_type_1', 
+          description: 'Room Type ID from RoomType table' 
         },
-        floor: { type: 'number', example: 1 },
         basePrice: { type: 'number', example: 1500.0 },
-        capacity: { type: 'number', example: 2 },
         status: {
           enum: [
             'AVAILABLE',
@@ -407,6 +422,7 @@ export class RoomController {
           ],
           example: 'AVAILABLE',
         },
+        amenities: { type: 'array', items: { type: 'string' } },
       },
     },
   })
@@ -432,21 +448,6 @@ export class RoomController {
     @Param('id') id: string,
     @Body() updateRoomDto: UpdateRoomDto,
   ) {
-    if (updateRoomDto.roomType) {
-      if (
-        !Object.values([
-          'STANDARD',
-          'DELUXE',
-          'SUITE',
-          'PRESIDENTIAL',
-          'FAMILY',
-          'ACCESSIBLE',
-        ]).includes(updateRoomDto.roomType)
-      ) {
-        throw new BadRequestException('Invalid room type');
-      }
-    }
-
     if (updateRoomDto.status) {
       if (
         !Object.values([
@@ -454,6 +455,7 @@ export class RoomController {
           'OCCUPIED',
           'MAINTENANCE',
           'OUT_OF_ORDER',
+          'CLEANING',
         ]).includes(updateRoomDto.status)
       ) {
         throw new BadRequestException('Invalid room status');

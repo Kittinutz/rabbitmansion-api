@@ -1,11 +1,34 @@
 // Room Management Models
 // Hotel rooms, images, and maintenance tracking
 
+// Room Type Configuration - Separate table for room types
+model RoomType {
+  id          String @id @default(cuid())
+  code        String @unique // "DELUXE_DOUBLE_POOL", "DELUXE_DOUBLE", etc.
+  name        Json   // {"en": "Deluxe Double Room with Pool View", "th": "ห้องดีลักซ์ดับเบิลวิวสระ"}
+  description Json?  // Multi-language descriptions
+  basePrice   Float  // Default base price for this room type
+  capacity    Int    // Maximum occupancy
+  bedType     String // "Double", "Twin", "Family"
+  hasPoolView Boolean @default(false)
+  amenities   String[] // Default amenities for this room type
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  rooms       Room[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
 // Hotel Rooms - Core inventory with multi-language support
 model Room {
   id              String     @id @default(cuid())
   roomNumber      String     @unique // "101", "A-205", etc.
-  roomType        RoomType
+  roomTypeId      String
+  roomType        RoomType   @relation(fields: [roomTypeId], references: [id])
   status          RoomStatus @default(AVAILABLE)
   floor           Int
   maxOccupancy    Int        @default(2)
@@ -45,7 +68,7 @@ model Room {
   maintenanceLogs MaintenanceLog[]
 
   @@index([status])
-  @@index([roomType])
+  @@index([roomTypeId])
   @@index([floor])
   @@index([isActive])
   @@map("rooms")

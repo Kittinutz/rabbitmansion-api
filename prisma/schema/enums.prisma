@@ -1,15 +1,6 @@
 // Enumeration Definitions
 // All enums used across the hotel management system
 
-enum RoomType {
-  STANDARD
-  DELUXE
-  SUITE
-  PRESIDENTIAL
-  FAMILY
-  ACCESSIBLE
-}
-
 enum RoomStatus {
   AVAILABLE
   OCCUPIED

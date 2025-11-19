@@ -4,27 +4,27 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
-import { RoomType, RoomStatus, Prisma } from '../prisma/generated/prisma';
+import { RoomStatus, Prisma } from '../prisma/generated/prisma';
 
 export interface CreateRoomDto {
   roomNumber: string;
-  roomType: RoomType;
+  roomTypeId: string; // Now references RoomType table
   status?: RoomStatus;
-  price?: number;
+  basePrice?: number;
   description?: string;
   amenities?: string[];
 }
 
 export interface UpdateRoomDto {
-  roomType?: RoomType;
+  roomTypeId?: string; // Now references RoomType table
   status?: RoomStatus;
-  price?: number;
+  basePrice?: number;
   description?: string;
   amenities?: string[];
 }
 
 export interface RoomFilter {
-  roomType?: RoomType;
+  roomTypeId?: string; // Now references RoomType table
   status?: RoomStatus;
   floor?: number;
   priceMin?: number;
@@ -33,7 +33,14 @@ export interface RoomFilter {
 
 @Injectable()
 export class RoomService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) {}
+
+  async getAllRoomTypes() {
+    return this.prisma.roomType.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+    });
+  }
 
   async createRoom(data: CreateRoomDto) {
     // Validate room number format
@@ -81,8 +88,8 @@ export class RoomService {
   async getAllRooms(filter?: RoomFilter) {
     const where: Prisma.RoomWhereInput = {};
 
-    if (filter?.roomType) {
-      where.roomType = filter.roomType;
+    if (filter?.roomTypeId) {
+      where.roomTypeId = filter.roomTypeId;
     }
     if (filter?.status) {
       where.status = filter.status;
@@ -102,6 +109,9 @@ export class RoomService {
 
     return this.prisma.room.findMany({
       where,
+      include: {
+        roomType: true,
+      },
       orderBy: { roomNumber: 'asc' },
     });
   }
@@ -109,6 +119,9 @@ export class RoomService {
   async getRoomById(id: string) {
     const room = await this.prisma.room.findUnique({
       where: { id },
+      include: {
+        roomType: true,
+      },
     });
 
     if (!room) {
@@ -121,6 +134,9 @@ export class RoomService {
   async getRoomByNumber(roomNumber: string) {
     const room = await this.prisma.room.findUnique({
       where: { roomNumber },
+      include: {
+        roomType: true,
+      },
     });
 
     if (!room) {
@@ -133,11 +149,27 @@ export class RoomService {
   async updateRoom(id: string, data: UpdateRoomDto) {
     await this.getRoomById(id); // Check if room exists
 
+    // Verify room type exists if provided
+    if (data.roomTypeId) {
+      const roomType = await this.prisma.roomType.findUnique({
+        where: { id: data.roomTypeId },
+      });
+
+      if (!roomType) {
+        throw new BadRequestException(
+          `Room type with ID ${data.roomTypeId} not found`,
+        );
+      }
+    }
+
     return this.prisma.room.update({
       where: { id },
       data: {
         ...data,
         updatedAt: new Date(),
+      },
+      include: {
+        roomType: true,
       },
     });
   }
@@ -150,16 +182,22 @@ export class RoomService {
     });
   }
 
-  async getRoomsByType(roomType: RoomType) {
+  async getRoomsByType(roomTypeId: string) {
     return this.prisma.room.findMany({
-      where: { roomType },
+      where: { roomTypeId },
+      include: {
+        roomType: true,
+      },
       orderBy: { roomNumber: 'asc' },
     });
   }
 
   async getAvailableRooms() {
     return this.prisma.room.findMany({
-      where: { status: RoomStatus.AVAILABLE },
+      where: { status: 'AVAILABLE' },
+      include: {
+        roomType: true,
+      },
       orderBy: { roomNumber: 'asc' },
     });
   }
@@ -167,6 +205,9 @@ export class RoomService {
   async getRoomsByFloor(floor: number) {
     return this.prisma.room.findMany({
       where: { floor },
+      include: {
+        roomType: true,
+      },
       orderBy: { roomNumber: 'asc' },
     });
   }
