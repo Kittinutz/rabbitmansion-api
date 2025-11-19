@@ -46,8 +46,13 @@ async function bootstrap() {
     },
   });
 
-  await app.listen(3000, '0.0.0.0');
-  console.log(`🏨 Hotel Management API is running on: http://localhost:3000`);
-  console.log(`📚 Swagger API Documentation: http://localhost:3000/api`);
+  await app.listen(process.env.PORT || 3000, '0.0.0.0');
+  console.log(
+    `🏨 Hotel Management API is running on: http://localhost:${process.env.PORT || 3000}`,
+  );
+  console.log(
+    `📚 Swagger API Documentation: http://localhost:${process.env.PORT || 3000}/api`,
+  );
 }
-bootstrap();
+
+void bootstrap();
