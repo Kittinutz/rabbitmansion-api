@@ -159,20 +159,20 @@ async function seedRoomTypes() {
     },
     {
       id: 'rm_type_8',
-      code: 'DELUXE_TWIN_NO_WINDOW',
+      code: 'DELUXE_TWIN_BALCONY_NO_WINDOW',
       name: {
-        en: 'Deluxe Twin Room (No window)',
-        th: 'ห้องดีลักซ์ทวิน (ไม่มีหน้าต่าง)',
+        en: 'Deluxe Twin Room with balcony (No window)',
+        th: 'ห้องดีลักซ์ทวินพร้อมระเบียง (ไม่มีหน้าต่าง)',
       },
       description: {
-        en: 'Comfortable twin room without window',
-        th: 'ห้องทวินสะดวกสบายไม่มีหน้าต่าง',
+        en: 'Comfortable twin room with balcony but no window',
+        th: 'ห้องทวินสะดวกสบายพร้อมระเบียงแต่ไม่มีหน้าต่าง',
       },
       basePrice: 1800.0,
       capacity: 2,
       bedType: 'Twin',
       hasPoolView: false,
-      amenities: ['wifi', 'air_conditioning', 'minibar'],
+      amenities: ['wifi', 'air_conditioning', 'minibar', 'balcony'],
     },
     {
       id: 'rm_type_9',
