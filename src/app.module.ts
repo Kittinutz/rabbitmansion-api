@@ -7,6 +7,8 @@ import { MinioService } from './minio/minio.service';
 import { FileController } from './file/file.controller';
 import { RoomService } from './room/room.service';
 import { RoomController } from './room/room.controller';
+import { RoomTypeController } from './room-type/room-type.controller';
+import { RoomTypeService } from './room-type/room-type.service';
 
 @Module({
   imports: [
@@ -15,7 +17,18 @@ import { RoomController } from './room/room.controller';
       envFilePath: '.env',
     }),
   ],
-  controllers: [AppController, FileController, RoomController],
-  providers: [AppService, PrismaService, MinioService, RoomService],
+  controllers: [
+    AppController,
+    FileController,
+    RoomController,
+    RoomTypeController,
+  ],
+  providers: [
+    AppService,
+    PrismaService,
+    MinioService,
+    RoomService,
+    RoomTypeService,
+  ],
 })
 export class AppModule {}

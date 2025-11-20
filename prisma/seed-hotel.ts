@@ -1,4 +1,11 @@
-import { PrismaClient } from '../generated/prisma';
+import {
+  PrismaClient,
+  RoomType,
+  Room,
+  RoomStatus,
+  BookingStatus,
+  PaymentStatus,
+} from './generated/prisma';
 
 const prisma = new PrismaClient();
 
@@ -119,133 +126,265 @@ async function seedGuests() {
 }
 
 async function seedRooms() {
-  console.log('\n🏨 Seeding hotel rooms...');
+  console.log('\n🏨 Seeding hotel rooms and room types...');
 
   try {
-    // Clear existing rooms
+    // Clear existing rooms and room types
     await prisma.room.deleteMany({});
+    await prisma.roomType.deleteMany({});
 
+    // First, create room types
     const roomTypes = [
       {
-        type: RoomType.STANDARD,
-        basePrice: 2500,
-        maxOccupancy: 2,
-        bedCount: 1,
+        code: 'STANDARD_SINGLE',
+        name: {
+          en: 'Standard Single Room',
+          th: 'ห้องเดี่ยวมาตรฐาน',
+        },
+        description: {
+          en: 'Comfortable single room with modern amenities',
+          th: 'ห้องเดี่ยวสะดวกสบายพร้อมสิ่งอำนวยความสะดวกทันสมัย',
+        },
+        basePrice: 1200,
+        capacity: 1,
+        bedType: 'Single',
+        hasPoolView: false,
+        amenities: ['WiFi', 'AC', 'TV', 'Desk'],
+        isActive: true,
+      },
+      {
+        code: 'STANDARD_DOUBLE',
+        name: {
+          en: 'Standard Double Room',
+          th: 'ห้องดับเบิลมาตรฐาน',
+        },
+        description: {
+          en: 'Spacious double room with queen bed',
+          th: 'ห้องดับเบิลขนาดกว้างพร้อมเตียงควีน',
+        },
+        basePrice: 1800,
+        capacity: 2,
         bedType: 'Queen',
-        size: 25,
-        name: { en: 'Standard Room', th: 'ห้องมาตรฐาน' },
-        description: {
-          en: 'Comfortable standard room with modern amenities',
-          th: 'ห้องพักมาตรฐานที่สะดวกสบายพร้อมสิ่งอำนวยความสะดวกทันสมัย',
-        },
-        amenities: [
-          'WiFi',
-          'Air Conditioning',
-          'Television',
-          'Private Bathroom',
-          'Mini Fridge',
-        ],
+        hasPoolView: false,
+        amenities: ['WiFi', 'AC', 'TV', 'Minibar', 'Safe'],
+        isActive: true,
       },
       {
-        type: RoomType.DELUXE,
-        basePrice: 3500,
-        maxOccupancy: 3,
-        bedCount: 1,
+        code: 'DELUXE_DOUBLE',
+        name: {
+          en: 'Deluxe Double Room',
+          th: 'ห้องดีลักซ์ดับเบิล',
+        },
+        description: {
+          en: 'Premium double room with upgraded amenities',
+          th: 'ห้องดับเบิลพรีเมียมพร้อมสิ่งอำนวยความสะดวกระดับพิเศษ',
+        },
+        basePrice: 2500,
+        capacity: 2,
         bedType: 'King',
-        size: 35,
-        name: { en: 'Deluxe Room', th: 'ห้องดีลักซ์' },
-        description: {
-          en: 'Spacious deluxe room with premium amenities and city view',
-          th: 'ห้องดีลักซ์กว้างขวางพร้อมสิ่งอำนวยความสะดวกระดับพรีเมียมและวิวเมือง',
-        },
+        hasPoolView: false,
         amenities: [
           'WiFi',
-          'Air Conditioning',
-          'Television',
-          'Private Bathroom',
-          'Mini Fridge',
-          'City View',
-          'Room Service',
-          'Safe Box',
+          'AC',
+          'TV',
+          'Minibar',
+          'Safe',
+          'Balcony',
+          'Bathtub',
         ],
+        isActive: true,
       },
       {
-        type: RoomType.SUITE,
-        basePrice: 5500,
-        maxOccupancy: 4,
-        bedCount: 2,
-        bedType: 'King + Sofa Bed',
-        size: 50,
-        name: { en: 'Executive Suite', th: 'ห้องสวีทเอ็กเซ็กคิวทีฟ' },
-        description: {
-          en: 'Luxurious suite with separate living area and premium facilities',
-          th: 'ห้องสวีทหรูหราพร้อมพื้นที่นั่งเล่นแยกและสิ่งอำนวยความสะดวกระดับพรีเมียม',
+        code: 'DELUXE_POOL_VIEW',
+        name: {
+          en: 'Deluxe Pool View Room',
+          th: 'ห้องดีลักซ์วิวสระ',
         },
+        description: {
+          en: 'Luxurious room with stunning pool views',
+          th: 'ห้องหรูหราพร้อมวิวสระสวยงาม',
+        },
+        basePrice: 3200,
+        capacity: 2,
+        bedType: 'King',
+        hasPoolView: true,
         amenities: [
           'WiFi',
-          'Air Conditioning',
-          'Television',
-          'Private Bathroom',
-          'Mini Bar',
-          'Living Area',
-          'City View',
-          'Room Service',
-          'Safe Box',
+          'AC',
+          'TV',
+          'Minibar',
+          'Safe',
           'Balcony',
+          'Bathtub',
+          'Pool View',
+        ],
+        isActive: true,
+      },
+      {
+        code: 'FAMILY_SUITE',
+        name: {
+          en: 'Family Suite',
+          th: 'ห้องสวีทครอบครัว',
+        },
+        description: {
+          en: 'Spacious family suite with separate living area',
+          th: 'ห้องสวีทครอบครัวขนาดใหญ่พร้อมพื้นที่นั่งเล่นแยก',
+        },
+        basePrice: 4500,
+        capacity: 4,
+        bedType: 'Family',
+        hasPoolView: true,
+        amenities: [
+          'WiFi',
+          'AC',
+          'TV',
+          'Minibar',
+          'Safe',
+          'Living Area',
+          'Kitchenette',
+          'Pool View',
+        ],
+        isActive: true,
+      },
+    ];
+
+    console.log('📋 Creating room types...');
+    const createdRoomTypes: RoomType[] = [];
+
+    for (const roomType of roomTypes) {
+      const created = await prisma.roomType.create({
+        data: roomType,
+      });
+      createdRoomTypes.push(created);
+      console.log(`✅ Created room type: ${roomType.code}`);
+    }
+
+    // Define room distribution by floor
+    const roomDistribution = [
+      // Floor 1 (101-117): Mix of standard and some deluxe
+      {
+        floor: 1,
+        pattern: [
+          'STANDARD_SINGLE',
+          'STANDARD_DOUBLE',
+          'STANDARD_DOUBLE',
+          'DELUXE_DOUBLE',
+        ],
+      },
+      // Floor 2 (201-217): Mix of deluxe and pool view
+      {
+        floor: 2,
+        pattern: [
+          'DELUXE_DOUBLE',
+          'DELUXE_DOUBLE',
+          'DELUXE_POOL_VIEW',
+          'DELUXE_POOL_VIEW',
+        ],
+      },
+      // Floor 3 (301-317): Premium rooms with pool view and family suites
+      {
+        floor: 3,
+        pattern: [
+          'DELUXE_POOL_VIEW',
+          'DELUXE_POOL_VIEW',
+          'FAMILY_SUITE',
+          'DELUXE_POOL_VIEW',
         ],
       },
     ];
 
-    const rooms = [];
+    console.log('🏨 Creating rooms 101-117, 201-217, 301-317...');
 
-    // Generate rooms for each floor and type
-    for (let floor = 1; floor <= 3; floor++) {
-      for (let roomNum = 1; roomNum <= 12; roomNum++) {
+    let totalRoomsCreated = 0;
+
+    for (const floorConfig of roomDistribution) {
+      const { floor, pattern } = floorConfig;
+
+      for (let roomNum = 1; roomNum <= 17; roomNum++) {
         const roomNumber = `${floor}${roomNum.toString().padStart(2, '0')}`;
-        const roomTypeIndex = (floor - 1) % roomTypes.length;
-        const roomTypeData = roomTypes[roomTypeIndex];
+        const roomTypeCode = pattern[(roomNum - 1) % pattern.length];
+        const roomType = createdRoomTypes.find(
+          (rt) => rt.code === roomTypeCode,
+        );
 
-        rooms.push({
+        if (!roomType) {
+          console.error(`❌ Room type ${roomTypeCode} not found`);
+          continue;
+        }
+
+        // Determine room characteristics based on type and floor
+        const isPoolView = roomType.hasPoolView;
+        const view = isPoolView
+          ? 'Pool'
+          : floor === 1
+            ? 'Garden'
+            : floor === 2
+              ? 'City'
+              : 'Pool';
+
+        // Calculate pricing with floor premium
+        const floorMultiplier = floor === 1 ? 1.0 : floor === 2 ? 1.15 : 1.3;
+        const roomPrice = Math.round(roomType.basePrice * floorMultiplier);
+
+        // Determine room size based on type
+        const sizeMap = {
+          STANDARD_SINGLE: 25,
+          STANDARD_DOUBLE: 35,
+          DELUXE_DOUBLE: 45,
+          DELUXE_POOL_VIEW: 50,
+          FAMILY_SUITE: 75,
+        };
+
+        const roomData = {
           roomNumber,
-          roomType: roomTypeData.type,
+          roomTypeId: roomType.id,
           status: RoomStatus.AVAILABLE,
           floor,
-          maxOccupancy: roomTypeData.maxOccupancy,
-          bedCount: roomTypeData.bedCount,
-          bedType: roomTypeData.bedType,
-          basePrice: roomTypeData.basePrice,
+          maxOccupancy: roomType.capacity,
+          bedCount: roomType.bedType === 'Family' ? 2 : 1,
+          bedType: roomType.bedType,
+          basePrice: roomPrice,
           seasonalPricing: {
-            high: roomTypeData.basePrice * 1.5,
-            peak: roomTypeData.basePrice * 2.0,
-            low: roomTypeData.basePrice * 0.8,
+            peak: 1.5,
+            high: 1.2,
+            low: 0.8,
           },
-          size: roomTypeData.size,
-          view:
-            floor === 3
-              ? 'City View'
-              : floor === 2
-                ? 'Garden View'
-                : 'Courtyard View',
+          size: sizeMap[roomTypeCode] || 35,
+          view,
           smokingAllowed: false,
-          petFriendly: floor === 1,
-          accessible: roomNum <= 2,
-          name: roomTypeData.name,
-          description: roomTypeData.description,
-          amenities: roomTypeData.amenities,
+          petFriendly: roomTypeCode === 'FAMILY_SUITE',
+          accessible: roomNum <= 3, // First 3 rooms on each floor are accessible
+          name: {
+            en: `${(roomType.name as any).en} ${roomNumber}`,
+            th: `${(roomType.name as any).th} ${roomNumber}`,
+          },
+          description: {
+            en: `${(roomType.description as any).en} located on floor ${floor}`,
+            th: `${(roomType.description as any).th} ตั้งอยู่ชั้น ${floor}`,
+          },
+          amenities: roomType.amenities,
           isActive: true,
-        });
+        };
+
+        try {
+          await prisma.room.create({
+            data: roomData,
+          });
+          totalRoomsCreated++;
+          console.log(`✅ Created room: ${roomNumber} (${roomTypeCode})`);
+        } catch (error) {
+          console.error(
+            `❌ Failed to create room ${roomNumber}:`,
+            error.message,
+          );
+        }
       }
     }
 
-    // Create all rooms
-    for (const roomData of rooms) {
-      await prisma.room.create({ data: roomData });
-    }
-
-    console.log(`✅ Created ${rooms.length} rooms across ${3} floors`);
+    console.log(`✅ Created ${totalRoomsCreated} rooms across 3 floors`);
 
     // Set some rooms to different statuses for variety
-    const allRooms = await prisma.room.findMany();
+    console.log('🔄 Setting room statuses...');
 
     // Set some rooms as occupied
     await prisma.room.updateMany({

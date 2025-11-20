@@ -3,7 +3,7 @@
 
 // Room Type Configuration - Separate table for room types
 model RoomType {
-  id          String @id @default(cuid())
+  id          String @id @default(uuid())
   code        String @unique // "DELUXE_DOUBLE_POOL", "DELUXE_DOUBLE", etc.
   name        Json   // {"en": "Deluxe Double Room with Pool View", "th": "ห้องดีลักซ์ดับเบิลวิวสระ"}
   description Json?  // Multi-language descriptions
@@ -12,6 +12,7 @@ model RoomType {
   bedType     String // "Double", "Twin", "Family"
   hasPoolView Boolean @default(false)
   amenities   String[] // Default amenities for this room type
+  thumbnailUrl String? // MinIO storage URL for room type thumbnail image
   isActive    Boolean @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -25,7 +26,7 @@ model RoomType {
 
 // Hotel Rooms - Core inventory with multi-language support
 model Room {
-  id              String     @id @default(cuid())
+  id              String     @id @default(uuid())
   roomNumber      String     @unique // "101", "A-205", etc.
   roomTypeId      String
   roomType        RoomType   @relation(fields: [roomTypeId], references: [id])
@@ -76,7 +77,7 @@ model Room {
 
 // Room Images - Media management for rooms
 model RoomImage {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   roomId    String
   url       String   // Image URL or file path
   alt       String?  // Alt text for accessibility
@@ -93,7 +94,7 @@ model RoomImage {
 
 // Room Maintenance Tracking
 model MaintenanceLog {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   roomId      String
   type        String   // "Cleaning", "Repair", "Inspection", "Renovation"
   description String   // Detailed description of work performed
