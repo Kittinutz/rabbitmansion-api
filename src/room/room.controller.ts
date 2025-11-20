@@ -24,7 +24,7 @@ import {
 } from '@nestjs/swagger';
 import { RoomService } from './room.service';
 import type { CreateRoomDto, UpdateRoomDto, RoomFilter } from './room.service';
-import { RoomStatus } from 'prisma/generated/prisma';
+import { RoomStatus } from '../../prisma/generated/prisma/';
 
 @ApiTags('rooms')
 @Controller('rooms')
@@ -57,13 +57,8 @@ export class RoomController {
         roomNumber: { type: 'string', example: '101' },
         roomTypeId: { type: 'string', example: 'rm_type_1' },
         floor: { type: 'number', example: 1 },
-        basePrice: { type: 'number', example: 2500 },
-        capacity: { type: 'number', example: 2 },
-        amenities: {
-          type: 'array',
-          items: { type: 'string' },
-          example: ['WiFi', 'Air Conditioning', 'TV'],
-        },
+        size: { type: 'number', example: 35 },
+        accessible: { type: 'boolean', example: false },
       },
     },
   })
@@ -283,16 +278,13 @@ export class RoomController {
         roomNumber: { type: 'string' },
         roomTypeId: { type: 'string' },
         floor: { type: 'number' },
-        basePrice: { type: 'number' },
-        capacity: { type: 'number' },
+        size: { type: 'number' },
+        accessible: { type: 'boolean' },
         status: {
           type: 'string',
           enum: ['AVAILABLE', 'OCCUPIED', 'MAINTENANCE', 'OUT_OF_ORDER'],
         },
-        amenities: {
-          type: 'array',
-          items: { type: 'string' },
-        },
+        notes: { type: 'string' },
       },
     },
   })

@@ -11,117 +11,318 @@ async function main() {
     await prisma.room.deleteMany({});
     await prisma.roomType.deleteMany({});
 
-    // First, create room types
+    // First, create room types based on hotel specification
     const roomTypes = [
       {
-        code: 'STANDARD_SINGLE',
+        code: 'DELUXE_DOUBLE_POOL_VIEW',
         name: {
-          en: 'Standard Single Room',
-          th: 'ห้องเดี่ยวมาตรฐาน',
+          en: 'Deluxe Double Room with Pool View',
+          th: 'ห้องดีลักซ์ดับเบิลวิวสระ',
         },
         description: {
-          en: 'Comfortable single room with modern amenities',
-          th: 'ห้องเดี่ยวสะดวกสบายพร้อมสิ่งอำนวยความสะดวกทันสมัย',
+          en: 'Luxurious double room with stunning pool views',
+          th: 'ห้องดับเบิลหรูหราพร้อมวิวสระสวยงาม',
         },
-        basePrice: 1200,
-        capacity: 1,
-        bedType: 'Single',
-        hasPoolView: false,
-        amenities: ['WiFi', 'AC', 'TV', 'Desk'],
-        isActive: true,
-      },
-      {
-        code: 'STANDARD_DOUBLE',
-        name: {
-          en: 'Standard Double Room',
-          th: 'ห้องดับเบิลมาตรฐาน',
+        basePrice: 3500,
+        seasonalPricing: {
+          peak: 1.5,
+          high: 1.2,
+          low: 0.8,
         },
-        description: {
-          en: 'Spacious double room with queen bed',
-          th: 'ห้องดับเบิลขนาดกว้างพร้อมเตียงควีน',
-        },
-        basePrice: 1800,
         capacity: 2,
-        bedType: 'Queen',
-        hasPoolView: false,
-        amenities: ['WiFi', 'AC', 'TV', 'Minibar', 'Safe'],
+        bedCount: 1,
+        bedType: 'Double',
+        hasPoolView: true,
+        view: 'Pool',
+        smokingAllowed: false,
+        petFriendly: false,
+        amenities: [
+          'WiFi',
+          'AC',
+          'TV',
+          'Minibar',
+          'Safe',
+          'Pool View',
+          'Bathtub',
+        ],
+        mainImage: null,
+        galleryImages: [],
+        bannerImage: null,
         isActive: true,
       },
       {
-        code: 'DELUXE_DOUBLE',
+        code: 'DELUXE_DOUBLE_BALCONY',
         name: {
-          en: 'Deluxe Double Room',
-          th: 'ห้องดีลักซ์ดับเบิล',
+          en: 'Deluxe Double Room with balcony',
+          th: 'ห้องดีลักซ์ดับเบิลพร้อมระเบียง',
         },
         description: {
-          en: 'Premium double room with upgraded amenities',
-          th: 'ห้องดับเบิลพรีเมียมพร้อมสิ่งอำนวยความสะดวกระดับพิเศษ',
+          en: 'Elegant double room featuring a private balcony',
+          th: 'ห้องดับเบิลหรูหราพร้อมระเบียงส่วนตัว',
+        },
+        basePrice: 3000,
+        seasonalPricing: {
+          peak: 1.5,
+          high: 1.2,
+          low: 0.8,
+        },
+        capacity: 2,
+        bedCount: 1,
+        bedType: 'Double',
+        hasPoolView: false,
+        view: 'Garden',
+        smokingAllowed: false,
+        petFriendly: false,
+        amenities: [
+          'WiFi',
+          'AC',
+          'TV',
+          'Minibar',
+          'Safe',
+          'Balcony',
+          'Bathtub',
+        ],
+        mainImage: null,
+        galleryImages: [],
+        bannerImage: null,
+        isActive: true,
+      },
+      {
+        code: 'DELUXE_TWIN_BALCONY',
+        name: {
+          en: 'Deluxe Twin Room with balcony',
+          th: 'ห้องดีลักซ์ทวินพร้อมระเบียง',
+        },
+        description: {
+          en: 'Comfortable twin room with balcony and modern amenities',
+          th: 'ห้องทวินสะดวกสบายพร้อมระเบียงและสิ่งอำนวยความสะดวกทันสมัย',
+        },
+        basePrice: 2800,
+        seasonalPricing: {
+          peak: 1.5,
+          high: 1.2,
+          low: 0.8,
+        },
+        capacity: 2,
+        bedCount: 2,
+        bedType: 'Twin',
+        hasPoolView: false,
+        view: 'Garden',
+        smokingAllowed: false,
+        petFriendly: false,
+        amenities: ['WiFi', 'AC', 'TV', 'Minibar', 'Safe', 'Balcony'],
+        mainImage: null,
+        galleryImages: [],
+        bannerImage: null,
+        isActive: true,
+      },
+      {
+        code: 'FAMILY_DOUBLE_BALCONY',
+        name: {
+          en: 'Family Double Room with balcony (1 bathroom)',
+          th: 'ห้องดับเบิลครอบครัวพร้อมระเบียง (1 ห้องน้ำ)',
+        },
+        description: {
+          en: 'Spacious family room with double bed, balcony and one bathroom',
+          th: 'ห้องครอบครัวขนาดใหญ่พร้อมเตียงดับเบิล ระเบียง และห้องน้ำหนึ่งห้อง',
+        },
+        basePrice: 3800,
+        seasonalPricing: {
+          peak: 1.5,
+          high: 1.2,
+          low: 0.8,
+        },
+        capacity: 4,
+        bedCount: 1,
+        bedType: 'Double',
+        hasPoolView: false,
+        view: 'Garden',
+        smokingAllowed: false,
+        petFriendly: true,
+        amenities: [
+          'WiFi',
+          'AC',
+          'TV',
+          'Minibar',
+          'Safe',
+          'Balcony',
+          'Family Friendly',
+        ],
+        mainImage: null,
+        galleryImages: [],
+        bannerImage: null,
+        isActive: true,
+      },
+      {
+        code: 'PREMIER_DOUBLE_BALCONY',
+        name: {
+          en: 'Premier Double Room with balcony',
+          th: 'ห้องพรีเมียร์ดับเบิลพร้อมระเบียง',
+        },
+        description: {
+          en: 'Premium double room with balcony and luxury amenities',
+          th: 'ห้องดับเบิลพรีเมียมพร้อมระเบียงและสิ่งอำนวยความสะดวกหรูหรา',
+        },
+        basePrice: 4200,
+        seasonalPricing: {
+          peak: 1.5,
+          high: 1.2,
+          low: 0.8,
+        },
+        capacity: 2,
+        bedCount: 1,
+        bedType: 'Double',
+        hasPoolView: false,
+        view: 'City',
+        smokingAllowed: false,
+        petFriendly: false,
+        amenities: [
+          'WiFi',
+          'AC',
+          'TV',
+          'Minibar',
+          'Safe',
+          'Balcony',
+          'Premium Amenities',
+          'Bathtub',
+        ],
+        mainImage: null,
+        galleryImages: [],
+        bannerImage: null,
+        isActive: true,
+      },
+      {
+        code: 'SUPER_DELUXE_POOL_VIEW',
+        name: {
+          en: 'Super Deluxe Room with Pool view',
+          th: 'ห้องซูเปอร์ดีลักซ์วิวสระ',
+        },
+        description: {
+          en: 'Ultimate luxury room with spectacular pool views',
+          th: 'ห้องหรูหราระดับสูงสุดพร้อมวิวสระที่งดงาม',
+        },
+        basePrice: 5000,
+        seasonalPricing: {
+          peak: 1.5,
+          high: 1.2,
+          low: 0.8,
+        },
+        capacity: 2,
+        bedCount: 1,
+        bedType: 'King',
+        hasPoolView: true,
+        view: 'Pool',
+        smokingAllowed: false,
+        petFriendly: false,
+        amenities: [
+          'WiFi',
+          'AC',
+          'TV',
+          'Minibar',
+          'Safe',
+          'Pool View',
+          'Luxury Amenities',
+          'Jacuzzi',
+        ],
+        mainImage: null,
+        galleryImages: [],
+        bannerImage: null,
+        isActive: true,
+      },
+      {
+        code: 'SUPER_PREMIER_TERRACE',
+        name: {
+          en: 'Super Premier Room with Terrace',
+          th: 'ห้องซูเปอร์พรีเมียร์พร้อมเทอเรส',
+        },
+        description: {
+          en: 'Luxurious premier room with spacious terrace and premium amenities',
+          th: 'ห้องพรีเมียร์หรูหราพร้อมเทอเรสขนาดใหญ่และสิ่งอำนวยความสะดวกระดับพรีเมียม',
+        },
+        basePrice: 6000,
+        seasonalPricing: {
+          peak: 1.5,
+          high: 1.2,
+          low: 0.8,
+        },
+        capacity: 2,
+        bedCount: 1,
+        bedType: 'King',
+        hasPoolView: false,
+        view: 'City',
+        smokingAllowed: false,
+        petFriendly: false,
+        amenities: [
+          'WiFi',
+          'AC',
+          'TV',
+          'Minibar',
+          'Safe',
+          'Terrace',
+          'Premium Service',
+          'Jacuzzi',
+        ],
+        mainImage: null,
+        galleryImages: [],
+        bannerImage: null,
+        isActive: true,
+      },
+      {
+        code: 'DELUXE_TWIN_BALCONY_NO_WINDOW',
+        name: {
+          en: 'Deluxe Twin Room with balcony (No window)',
+          th: 'ห้องดีลักซ์ทวินพร้อมระเบียง (ไม่มีหน้าต่าง)',
+        },
+        description: {
+          en: 'Modern twin room with balcony, designed for comfort without traditional windows',
+          th: 'ห้องทวินทันสมัยพร้อมระเบียง ออกแบบเพื่อความสะดวกสบายโดยไม่มีหน้าต่างแบบดั้งเดิม',
         },
         basePrice: 2500,
+        seasonalPricing: {
+          peak: 1.5,
+          high: 1.2,
+          low: 0.8,
+        },
         capacity: 2,
-        bedType: 'King',
+        bedCount: 2,
+        bedType: 'Twin',
         hasPoolView: false,
-        amenities: [
-          'WiFi',
-          'AC',
-          'TV',
-          'Minibar',
-          'Safe',
-          'Balcony',
-          'Bathtub',
-        ],
+        view: 'Interior',
+        smokingAllowed: false,
+        petFriendly: false,
+        amenities: ['WiFi', 'AC', 'TV', 'Minibar', 'Safe', 'Balcony'],
+        mainImage: null,
+        galleryImages: [],
+        bannerImage: null,
         isActive: true,
       },
       {
-        code: 'DELUXE_POOL_VIEW',
+        code: 'DELUXE_DOUBLE_BALCONY_NO_WINDOW',
         name: {
-          en: 'Deluxe Pool View Room',
-          th: 'ห้องดีลักซ์วิวสระ',
+          en: 'Deluxe Double Room with balcony (No window)',
+          th: 'ห้องดีลักซ์ดับเบิลพร้อมระเบียง (ไม่มีหน้าต่าง)',
         },
         description: {
-          en: 'Luxurious room with stunning pool views',
-          th: 'ห้องหรูหราพร้อมวิวสระสวยงาม',
+          en: 'Contemporary double room with balcony, featuring innovative design without traditional windows',
+          th: 'ห้องดับเบิลร่วมสมัยพร้อมระเบียง มีการออกแบบที่นวัตกรรมโดยไม่มีหน้าต่างแบบดั้งเดิม',
         },
-        basePrice: 3200,
+        basePrice: 2700,
+        seasonalPricing: {
+          peak: 1.5,
+          high: 1.2,
+          low: 0.8,
+        },
         capacity: 2,
-        bedType: 'King',
-        hasPoolView: true,
-        amenities: [
-          'WiFi',
-          'AC',
-          'TV',
-          'Minibar',
-          'Safe',
-          'Balcony',
-          'Bathtub',
-          'Pool View',
-        ],
-        isActive: true,
-      },
-      {
-        code: 'FAMILY_SUITE',
-        name: {
-          en: 'Family Suite',
-          th: 'ห้องสวีทครอบครัว',
-        },
-        description: {
-          en: 'Spacious family suite with separate living area',
-          th: 'ห้องสวีทครอบครัวขนาดใหญ่พร้อมพื้นที่นั่งเล่นแยก',
-        },
-        basePrice: 4500,
-        capacity: 4,
-        bedType: 'Family',
-        hasPoolView: true,
-        amenities: [
-          'WiFi',
-          'AC',
-          'TV',
-          'Minibar',
-          'Safe',
-          'Living Area',
-          'Kitchenette',
-          'Pool View',
-        ],
+        bedCount: 1,
+        bedType: 'Double',
+        hasPoolView: false,
+        view: 'Interior',
+        smokingAllowed: false,
+        petFriendly: false,
+        amenities: ['WiFi', 'AC', 'TV', 'Minibar', 'Safe', 'Balcony'],
+        mainImage: null,
+        galleryImages: [],
+        bannerImage: null,
         isActive: true,
       },
     ];
@@ -137,36 +338,36 @@ async function main() {
       console.log(`✅ Created room type: ${roomType.code}`);
     }
 
-    // Define room distribution by floor
+    // Define room distribution by floor based on new room types
     const roomDistribution = [
-      // Floor 1 (101-117): Mix of standard and some deluxe
+      // Floor 1 (101-117): Entry level deluxe rooms
       {
         floor: 1,
         pattern: [
-          'STANDARD_SINGLE',
-          'STANDARD_DOUBLE',
-          'STANDARD_DOUBLE',
-          'DELUXE_DOUBLE',
+          'DELUXE_DOUBLE_BALCONY',
+          'DELUXE_TWIN_BALCONY',
+          'DELUXE_DOUBLE_BALCONY_NO_WINDOW',
+          'DELUXE_TWIN_BALCONY_NO_WINDOW',
         ],
       },
-      // Floor 2 (201-217): Mix of deluxe and pool view
+      // Floor 2 (201-217): Premium and family rooms
       {
         floor: 2,
         pattern: [
-          'DELUXE_DOUBLE',
-          'DELUXE_DOUBLE',
-          'DELUXE_POOL_VIEW',
-          'DELUXE_POOL_VIEW',
+          'DELUXE_DOUBLE_POOL_VIEW',
+          'PREMIER_DOUBLE_BALCONY',
+          'FAMILY_DOUBLE_BALCONY',
+          'DELUXE_DOUBLE_BALCONY',
         ],
       },
-      // Floor 3 (301-317): Premium rooms with pool view and family suites
+      // Floor 3 (301-317): Top tier luxury rooms
       {
         floor: 3,
         pattern: [
-          'DELUXE_POOL_VIEW',
-          'DELUXE_POOL_VIEW',
-          'FAMILY_SUITE',
-          'DELUXE_POOL_VIEW',
+          'SUPER_DELUXE_POOL_VIEW',
+          'SUPER_PREMIER_TERRACE',
+          'DELUXE_DOUBLE_POOL_VIEW',
+          'PREMIER_DOUBLE_BALCONY',
         ],
       },
     ];
@@ -190,20 +391,6 @@ async function main() {
           continue;
         }
 
-        // Determine room characteristics based on type and floor
-        const isPoolView = roomType.hasPoolView;
-        const view = isPoolView
-          ? 'Pool'
-          : floor === 1
-            ? 'Garden'
-            : floor === 2
-              ? 'City'
-              : 'Pool';
-
-        // Calculate pricing with floor premium
-        const floorMultiplier = floor === 1 ? 1.0 : floor === 2 ? 1.15 : 1.3;
-        const roomPrice = Math.round(roomType.basePrice * floorMultiplier);
-
         // Determine room size based on type
         const sizeMap: { [key: string]: number } = {
           STANDARD_SINGLE: 25,
@@ -218,29 +405,8 @@ async function main() {
           roomTypeId: roomType.id,
           status: RoomStatus.AVAILABLE,
           floor,
-          maxOccupancy: roomType.capacity,
-          bedCount: roomType.bedType === 'Family' ? 2 : 1,
-          bedType: roomType.bedType,
-          basePrice: roomPrice,
-          seasonalPricing: {
-            peak: 1.5,
-            high: 1.2,
-            low: 0.8,
-          },
           size: sizeMap[roomTypeCode] || 35,
-          view,
-          smokingAllowed: false,
-          petFriendly: roomTypeCode === 'FAMILY_SUITE',
           accessible: roomNum <= 3, // First 3 rooms on each floor are accessible
-          name: {
-            en: `${(roomType.name as any).en} ${roomNumber}`,
-            th: `${(roomType.name as any).th} ${roomNumber}`,
-          },
-          description: {
-            en: `${(roomType.description as any).en} located on floor ${floor}`,
-            th: `${(roomType.description as any).th} ตั้งอยู่ชั้น ${floor}`,
-          },
-          amenities: roomType.amenities,
           isActive: true,
         };
 

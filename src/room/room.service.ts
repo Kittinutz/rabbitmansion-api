@@ -6,25 +6,18 @@ export interface CreateRoomDto {
   roomNumber: string;
   roomTypeId: string;
   floor: number;
-  basePrice?: number;
-  maxOccupancy?: number;
-  amenities?: string[];
-  bedType?: string;
-  view?: string;
   size?: number;
+  accessible?: boolean;
 }
 
 export interface UpdateRoomDto {
   roomNumber?: string;
   roomTypeId?: string;
   floor?: number;
-  basePrice?: number;
-  maxOccupancy?: number;
   status?: RoomStatus;
-  amenities?: string[];
-  bedType?: string;
-  view?: string;
   size?: number;
+  accessible?: boolean;
+  notes?: string;
 }
 
 export interface RoomFilter {
@@ -65,20 +58,9 @@ export class RoomService {
         roomNumber: data.roomNumber,
         roomTypeId: data.roomTypeId,
         floor: data.floor,
-        basePrice: data.basePrice || roomType.basePrice,
-        maxOccupancy: data.maxOccupancy || roomType.capacity,
-        amenities: data.amenities || roomType.amenities,
-        bedType: data.bedType || roomType.bedType,
-        view: data.view,
         size: data.size,
-        name: {
-          en: `${roomTypeName.en} ${data.roomNumber}`,
-          th: `${roomTypeName.th} ${data.roomNumber}`,
-        },
-        description: {
-          en: roomTypeDescription?.en || `Comfortable room ${data.roomNumber}`,
-          th: roomTypeDescription?.th || `ห้องพัก ${data.roomNumber}`,
-        },
+        accessible: data.accessible || false,
+        isActive: true,
         status: 'AVAILABLE',
       },
       include: { roomType: true },
@@ -95,13 +77,16 @@ export class RoomService {
       where.floor = filter.floor;
     }
     if (filter.priceMin || filter.priceMax) {
-      where.basePrice = {};
+      const priceFilter: any = {};
       if (filter.priceMin) {
-        where.basePrice.gte = filter.priceMin;
+        priceFilter.gte = filter.priceMin;
       }
       if (filter.priceMax) {
-        where.basePrice.lte = filter.priceMax;
+        priceFilter.lte = filter.priceMax;
       }
+      where.roomType = {
+        basePrice: priceFilter,
+      };
     }
 
     return this.prisma.room.findMany({
@@ -238,22 +223,10 @@ export class RoomService {
           roomNumber,
           roomTypeId: roomType.id,
           floor,
-          basePrice: roomType.basePrice,
-          maxOccupancy: roomType.capacity,
-          amenities: roomType.amenities || [],
           status: 'AVAILABLE' as RoomStatus,
-          name: {
-            en: roomTypeName?.en
-              ? `${roomTypeName.en} ${roomNumber}`
-              : `Room ${roomNumber}`,
-            th: roomTypeName?.th
-              ? `${roomTypeName.th} ${roomNumber}`
-              : `ห้องพัก ${roomNumber}`,
-          },
-          description: {
-            en: roomTypeDescription?.en || `Comfortable room ${roomNumber}`,
-            th: roomTypeDescription?.th || `ห้องพัก ${roomNumber}`,
-          },
+          size: 35, // Default size
+          accessible: false,
+          isActive: true,
         });
       }
     }

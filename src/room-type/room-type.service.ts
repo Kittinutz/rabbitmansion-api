@@ -198,6 +198,8 @@ export class RoomTypeService {
       updateData.hasPoolView = updateRoomTypeDto.hasPoolView;
     if (updateRoomTypeDto.amenities)
       updateData.amenities = updateRoomTypeDto.amenities;
+    if (updateRoomTypeDto.thumbnailUrl !== undefined)
+      updateData.thumbnailUrl = updateRoomTypeDto.thumbnailUrl;
     if (updateRoomTypeDto.isActive !== undefined)
       updateData.isActive = updateRoomTypeDto.isActive;
 

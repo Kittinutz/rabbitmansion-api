@@ -23,7 +23,7 @@
     "db:reset": "prisma migrate reset --force && npm run db:seed"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed-simple.ts"
+    "seed": "ts-node prisma/seed-rooms.ts"
   },
   "dependencies": {
     "@fastify/multipart": "^9.3.0",

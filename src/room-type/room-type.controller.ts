@@ -326,6 +326,10 @@ export class RoomTypeController {
           type: 'array',
           items: { type: 'string' },
         },
+        thumbnailUrl: {
+          type: 'string',
+          description: 'URL of the room type thumbnail image',
+        },
         isActive: { type: 'boolean' },
       },
     },
@@ -380,6 +384,20 @@ export class RoomTypeController {
     description: 'Room type ID',
   })
   @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'File upload',
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Image file to upload (max 10MB)',
+        },
+      },
+      required: ['file'],
+    },
+  })
   @ApiResponse({
     status: 200,
     description: 'Thumbnail uploaded successfully',
@@ -396,6 +414,12 @@ export class RoomTypeController {
         },
       },
     },
+  })
+  @ApiBadRequestResponse({
+    description: 'Bad request - invalid file or missing file',
+  })
+  @ApiNotFoundResponse({
+    description: 'Room type not found',
   })
   async uploadThumbnail(
     @Param('id') id: string,

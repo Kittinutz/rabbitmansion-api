@@ -3,22 +3,34 @@
 
 // Room Type Configuration - Separate table for room types
 model RoomType {
-  id          String @id @default(uuid())
-  code        String @unique // "DELUXE_DOUBLE_POOL", "DELUXE_DOUBLE", etc.
-  name        Json   // {"en": "Deluxe Double Room with Pool View", "th": "ห้องดีลักซ์ดับเบิลวิวสระ"}
-  description Json?  // Multi-language descriptions
-  basePrice   Float  // Default base price for this room type
-  capacity    Int    // Maximum occupancy
-  bedType     String // "Double", "Twin", "Family"
-  hasPoolView Boolean @default(false)
-  amenities   String[] // Default amenities for this room type
-  thumbnailUrl String? // MinIO storage URL for room type thumbnail image
-  isActive    Boolean @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String @id @default(uuid())
+  code            String @unique // "DELUXE_DOUBLE_POOL", "DELUXE_DOUBLE", etc.
+  name            Json   // {"en": "Deluxe Double Room with Pool View", "th": "ห้องดีลักซ์ดับเบิลวิวสระ"}
+  description     Json?  // Multi-language descriptions
+  basePrice       Float  // Default base price for this room type
+  seasonalPricing Json?  // {"peak": 1.5, "low": 0.8} multipliers
+  capacity        Int    // Maximum occupancy
+  bedCount        Int    @default(1)
+  bedType         String // "Double", "Twin", "Family"
+  hasPoolView     Boolean @default(false)
+  view            String? // "Ocean", "City", "Garden", "Pool"
+  smokingAllowed  Boolean @default(false)
+  petFriendly     Boolean @default(false)
+  amenities       String[] // Default amenities for this room type
+  thumbnailUrl    String? // MinIO storage URL for room type thumbnail image
+  
+  // Media & Visual Content
+  mainImage       String?    // Primary room photo URL
+  galleryImages   String[]   // Additional room photos
+  bannerImage     String?    // Featured banner image
+  
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
   rooms       Room[]
+  roomImages  RoomImage[]
 
   @@index([code])
   @@index([isActive])
@@ -32,28 +44,10 @@ model Room {
   roomType        RoomType   @relation(fields: [roomTypeId], references: [id])
   status          RoomStatus @default(AVAILABLE)
   floor           Int
-  maxOccupancy    Int        @default(2)
-  bedCount        Int        @default(1)
-  bedType         String?    // "King", "Queen", "Twin", "Sofa Bed"
-  basePrice       Float      // Base nightly rate
-  seasonalPricing Json?      // {"peak": 1.5, "low": 0.8} multipliers
   
   // Room Features
   size            Float?     // Room size in square meters
-  view            String?    // "Ocean", "City", "Garden", "Pool"
-  smokingAllowed  Boolean    @default(false)
-  petFriendly     Boolean    @default(false)
   accessible      Boolean    @default(false) // ADA compliance
-  
-  // Multi-language Content Support
-  name            Json       // {"en": "Deluxe Room", "th": "ห้องดีลักซ์"}
-  description     Json       // Multi-language room descriptions
-  amenities       String[]   // ["wifi", "minibar", "balcony", "jacuzzi"]
-  
-  // Media & Visual Content
-  mainImage       String?    // Primary room photo URL
-  galleryImages   String[]   // Additional room photos
-  bannerImage     String?    // Featured banner image
   
   // Maintenance & Operations
   lastCleaned     DateTime?
@@ -65,7 +59,6 @@ model Room {
 
   // Relations - Room activities and content
   bookings        Booking[]
-  roomImages      RoomImage[]
   maintenanceLogs MaintenanceLog[]
 
   @@index([status])
@@ -75,20 +68,21 @@ model Room {
   @@map("rooms")
 }
 
-// Room Images - Media management for rooms
+// Room Type Images - Media management for room types
 model RoomImage {
-  id        String   @id @default(uuid())
-  roomId    String
-  url       String   // Image URL or file path
-  alt       String?  // Alt text for accessibility
-  caption   Json?    // {"en": "Ocean view", "th": "วิวทะเล"}
-  isPrimary Boolean  @default(false)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  roomTypeId  String
+  url         String   // Image URL or file path
+  alt         String?  // Alt text for accessibility
+  caption     Json?    // {"en": "Ocean view", "th": "วิวทะเล"}
+  isPrimary   Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
 
   // Relations
-  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomType    RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
 
+  @@index([roomTypeId])
   @@map("room_images")
 }
 
