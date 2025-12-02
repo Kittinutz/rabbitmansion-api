@@ -1,6 +1,3 @@
-// Enumeration Definitions
-// All enums used across the hotel management system
-
 enum RoomStatus {
   AVAILABLE
   OCCUPIED
@@ -32,6 +29,14 @@ enum PaymentMethod {
   CASH
   BANK_TRANSFER
   MOBILE_PAYMENT
+}
+
+enum BedTypeEnum {
+  SINGLE
+  DOUBLE
+  QUEEN
+  KING
+  TWIN
 }
 
 enum ServiceCategory {
@@ -69,4 +74,26 @@ enum AuditAction {
   DELETE
   LOGIN
   LOGOUT
+}
+
+enum AmenitiesEnum {
+  WIFI
+  AIR_CONDITIONING
+  MINIBAR
+  SAFE
+  TV
+  BALCONY
+  BATHTUB
+  SHOWER
+  DESK
+  BED
+  LIVING_ROOM
+  KITCHEN
+  BATHROOM
+  KING_SIZE_BED
+  QUEEN_SIZE_BED
+  TWIN_BEDS
+  ROOM_SERVICE
+  CITY_VIEW
+  POOL_VIEW
 }

@@ -246,4 +246,74 @@ export class MinioService implements OnModuleInit {
       });
     });
   }
+
+  /**
+   * Move file from current location to new directory
+   */
+  async moveFile(currentUrl: string, newDirectory: string): Promise<string> {
+    try {
+      // Extract current key from URL
+      const currentKey = this.extractKeyFromUrl(currentUrl);
+      if (!currentKey) {
+        throw new Error('Invalid URL format');
+      }
+
+      // Check if source file exists
+      const fileExists = await this.fileExists(currentKey);
+      if (!fileExists) {
+        throw new Error(`Source file does not exist: ${currentKey}`);
+      }
+
+      // Get original filename from current key
+      const fileName = currentKey.split('/').pop();
+      if (!fileName) {
+        throw new Error('Unable to extract filename from current key');
+      }
+
+      // Create new key with new directory
+      const newKey = `${newDirectory}/${fileName}`;
+
+      // Copy object to new location (correct format: bucket/object)
+      await this.minioClient.copyObject(
+        this.bucketName,
+        newKey,
+        `${this.bucketName}/${currentKey}`,
+      );
+
+      // Delete original file
+      await this.minioClient.removeObject(this.bucketName, currentKey);
+
+      // Generate new URL
+      const newUrl = this.getFileUrl(newKey);
+
+      this.logger.log(`📁 File moved from ${currentKey} to ${newKey}`);
+
+      return newUrl;
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to move file from ${currentUrl} to ${newDirectory}`,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Extract key from MinIO URL
+   */
+  private extractKeyFromUrl(url: string): string | null {
+    try {
+      const urlObj = new URL(url);
+      // Remove leading slash and bucket name from pathname
+      const pathParts = urlObj.pathname.split('/');
+      // Remove empty string and bucket name
+      const keyParts = pathParts.slice(2);
+      const key = keyParts.join('/');
+
+      // Decode URL-encoded characters (like %20 for spaces)
+      return key ? decodeURIComponent(key) : null;
+    } catch {
+      return null;
+    }
+  }
 }

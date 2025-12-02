@@ -1,36 +1,22 @@
-// Service Management Models
-// Hotel services and add-ons
-
-// Hotel Services - Additional services offered to guests
 model Service {
-  id          String          @id @default(cuid())
-  code        String          @unique // "SPA001", "ROOM_SERVICE", etc.
-  category    ServiceCategory
-  status      ServiceStatus   @default(ACTIVE)
-  
-  // Multi-language Service Information
-  name        Json            // {"en": "Room Service", "th": "บริการในห้อง"}
-  description Json            // Multi-language descriptions
-  
-  // Pricing & Availability
-  basePrice   Float
-  currency    String          @default("THB")
-  taxRate     Float           @default(0.07) // 7% VAT
-  
-  // Service Configuration
-  isActive    Boolean         @default(true)
-  availableFrom DateTime?     // Service availability start
-  availableTo   DateTime?     // Service availability end
-  maxQuantity Int?            // Maximum quantity per booking
-  requiresApproval Boolean    @default(false) // Requires staff approval
-  
-  // Metadata
-  notes       String?         // Internal service notes
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-
-  // Relations
-  bookingServices BookingService[]
+  id               String           @id @default(cuid())
+  code             String           @unique
+  category         ServiceCategory
+  status           ServiceStatus    @default(ACTIVE)
+  name             Json
+  description      Json
+  basePrice        Float
+  currency         String           @default("THB")
+  taxRate          Float            @default(0.07)
+  isActive         Boolean          @default(true)
+  availableFrom    DateTime?
+  availableTo      DateTime?
+  maxQuantity      Int?
+  requiresApproval Boolean          @default(false)
+  notes            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  bookingServices  BookingService[]
 
   @@index([category])
   @@index([status])
@@ -38,18 +24,15 @@ model Service {
   @@map("services")
 }
 
-// Booking Services - Services linked to specific bookings
 model BookingService {
   id         String   @id @default(cuid())
   bookingId  String
   serviceId  String
   quantity   Int      @default(1)
-  unitPrice  Float    // Price at time of booking (preserves historical pricing)
-  totalPrice Float    // quantity * unitPrice
-  notes      String?  // Special instructions or notes
+  unitPrice  Float
+  totalPrice Float
+  notes      String?
   createdAt  DateTime @default(now())
-
-  // Relations
   booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   service    Service  @relation(fields: [serviceId], references: [id])
 

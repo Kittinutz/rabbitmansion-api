@@ -1,60 +1,46 @@
-// User Management Models
-// Admin and Guest user accounts and authentication
-
-// Admin Users - System administrators and staff
 model Admin {
-  id          String   @id @default(cuid())
-  email       String   @unique
-  username    String   @unique
-  password    String   // Hashed password (use bcrypt)
-  firstName   String
-  lastName    String
-  role        String   @default("ADMIN") // ADMIN, MANAGER, RECEPTIONIST
-  isActive    Boolean  @default(true)
-  lastLogin   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations - Track admin activities
+  id              String     @id @default(cuid())
+  email           String     @unique
+  username        String     @unique
+  password        String
+  firstName       String
+  lastName        String
+  role            String     @default("ADMIN")
+  isActive        Boolean    @default(true)
+  lastLogin       DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
   auditLogs       AuditLog[]
-  createdBookings Booking[] @relation("AdminCreatedBookings")
-  updatedBookings Booking[] @relation("AdminUpdatedBookings")
+  createdBookings Booking[]  @relation("AdminCreatedBookings")
+  updatedBookings Booking[]  @relation("AdminUpdatedBookings")
 
   @@map("admins")
 }
 
-// Hotel Guests - Customer information and preferences
 model Guest {
-  id          String      @id @default(cuid())
-  email       String      @unique
-  phone       String?
-  firstName   String
-  lastName    String
-  dateOfBirth DateTime?
-  nationality String?
-  passport    String?     // Passport number for international guests
-  
-  // Address Information
-  address     String?
-  city        String?
-  country     String?
-  postalCode  String?
-  
-  // Guest Profile & Preferences
-  preferences String[]    // ["late_checkout", "room_service", "spa"]
-  status      GuestStatus @default(ACTIVE)
-  vipLevel    Int         @default(0) // 0=Regular, 1=Silver, 2=Gold, 3=Platinum
-  totalStays  Int         @default(0)
-  totalSpent  Float       @default(0)
-  notes       String?     // Staff notes about guest preferences
-  
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  // Relations - Guest activities and interactions
+  id             String          @id @default(cuid())
+  email          String          @unique
+  phone          String?
+  firstName      String
+  lastName       String
+  dateOfBirth    DateTime?
+  nationality    String?
+  passport       String?
+  address        String?
+  city           String?
+  country        String?
+  postalCode     String?
+  preferences    String[]
+  status         GuestStatus     @default(ACTIVE)
+  vipLevel       Int             @default(0)
+  totalStays     Int             @default(0)
+  totalSpent     Float           @default(0)
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   bookings       Booking[]
-  reviews        Review[]
   loyaltyProgram LoyaltyProgram?
+  reviews        Review[]
 
   @@map("guests")
 }

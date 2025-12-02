@@ -1,27 +1,17 @@
-// Financial Management Models  
-// Payments, refunds, and revenue tracking
-
-// Payment Processing - Transaction management
 model Payment {
   id              String        @id @default(cuid())
   bookingId       String
   amount          Float
-  currency        String        @default("THB") // Thai Baht
+  currency        String        @default("THB")
   paymentMethod   PaymentMethod
   status          PaymentStatus @default(PENDING)
-  
-  // Transaction Details
-  transactionId   String?       // External payment gateway transaction ID
-  gatewayResponse Json?         // Raw response from payment gateway
-  
-  // Audit & Metadata
-  paidAt          DateTime?     // When payment was completed
-  description     String?       // Payment description or memo
-  notes           String?       // Internal staff notes
+  transactionId   String?
+  gatewayResponse Json?
+  paidAt          DateTime?
+  description     String?
+  notes           String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
-
-  // Relations
   booking         Booking       @relation(fields: [bookingId], references: [id])
   refunds         Refund[]
 
@@ -30,19 +20,16 @@ model Payment {
   @@map("payments")
 }
 
-// Refund Management - Handle payment reversals
 model Refund {
   id          String       @id @default(cuid())
   paymentId   String
-  amount      Float        // Refund amount (can be partial)
-  reason      String       // Reason for refund
+  amount      Float
+  reason      String
   status      RefundStatus @default(PENDING)
-  processedAt DateTime?    // When refund was processed
-  notes       String?      // Additional notes about refund
+  processedAt DateTime?
+  notes       String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-
-  // Relations
   payment     Payment      @relation(fields: [paymentId], references: [id])
 
   @@index([paymentId])
@@ -50,16 +37,15 @@ model Refund {
   @@map("refunds")
 }
 
-// Daily Revenue Analytics - Key performance metrics
 model DailyRevenue {
   id             String   @id @default(cuid())
-  date           DateTime @unique @db.Date // Date for the revenue data
-  roomRevenue    Float    @default(0)      // Revenue from room bookings
-  serviceRevenue Float    @default(0)      // Revenue from additional services
-  totalRevenue   Float    @default(0)      // Total combined revenue
-  occupancyRate  Float    @default(0)      // Percentage of rooms occupied
-  adr            Float    @default(0)      // Average Daily Rate
-  revpar         Float    @default(0)      // Revenue Per Available Room
+  date           DateTime @unique @db.Date
+  roomRevenue    Float    @default(0)
+  serviceRevenue Float    @default(0)
+  totalRevenue   Float    @default(0)
+  occupancyRate  Float    @default(0)
+  adr            Float    @default(0)
+  revpar         Float    @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

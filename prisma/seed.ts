@@ -1,3 +1,4 @@
+import { AmenitiesEnum } from 'types/roomType.type';
 import { PrismaClient, RoomType, RoomStatus } from '../generated/prisma';
 
 const prisma = new PrismaClient();
@@ -13,18 +14,12 @@ interface RoomData {
 }
 
 function getDefaultAmenities(roomType: RoomType): string[] {
-  const baseAmenities = [
-    'WiFi',
-    'Air Conditioning',
-    'Television',
-    'Private Bathroom',
-  ];
-
+  const baseAmenities = Object.keys(AmenitiesEnum);
   switch (roomType) {
     case 'STANDARD_OPPOSITE_POOL':
-      return [...baseAmenities, 'Pool View', 'Balcony'];
+      return [...baseAmenities];
     case 'DOUBLE_BED':
-      return [...baseAmenities, 'King Size Bed', 'Mini Fridge'];
+      return [...baseAmenities];
     case 'SUPERIOR':
       return [
         ...baseAmenities,

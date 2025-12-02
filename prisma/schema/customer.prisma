@@ -1,23 +1,17 @@
-// Customer Experience Models
-// Reviews, loyalty programs, and guest feedback
-
-// Guest Reviews - Feedback and ratings system
 model Review {
-  id          String   @id @default(cuid())
-  bookingId   String
-  guestId     String
-  rating      Int      // 1-5 star rating
-  title       String?  // Review title
-  comment     String?  // Guest review text
-  response    String?  // Hotel management response
-  isVerified  Boolean  @default(false) // Verified stay
-  isPublic    Boolean  @default(true)  // Display publicly
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  booking     Booking  @relation(fields: [bookingId], references: [id])
-  guest       Guest    @relation(fields: [guestId], references: [id])
+  id         String   @id @default(cuid())
+  bookingId  String
+  guestId    String
+  rating     Int
+  title      String?
+  comment    String?
+  response   String?
+  isVerified Boolean  @default(false)
+  isPublic   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  booking    Booking  @relation(fields: [bookingId], references: [id])
+  guest      Guest    @relation(fields: [guestId], references: [id])
 
   @@index([guestId])
   @@index([rating])
@@ -25,16 +19,13 @@ model Review {
   @@map("reviews")
 }
 
-// Loyalty Program - Guest rewards and tier management
 model LoyaltyProgram {
   id          String   @id @default(cuid())
   guestId     String   @unique
   points      Int      @default(0)
-  tier        String   @default("BRONZE") // BRONZE, SILVER, GOLD, PLATINUM
+  tier        String   @default("BRONZE")
   joinDate    DateTime @default(now())
   lastUpdated DateTime @updatedAt
-
-  // Relations
   guest       Guest    @relation(fields: [guestId], references: [id])
 
   @@map("loyalty_programs")

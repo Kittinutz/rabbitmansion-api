@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prima/prisma.service';
-import { Prisma, RoomType } from '../../prisma/generated/prisma';
+import { $Enums, Prisma, RoomType } from '../../prisma/generated/prisma';
+import { MinioService } from 'src/minio/minio.service';
 
 export interface CreateRoomTypeDto {
   code: string;
@@ -14,10 +15,11 @@ export interface CreateRoomTypeDto {
   };
   basePrice: number;
   capacity: number;
-  bedType: string;
+  bedType: $Enums.BedTypeEnum;
   hasPoolView?: boolean;
-  amenities?: string[];
+  amenities?: $Enums.AmenitiesEnum[];
   thumbnailUrl?: string;
+  roomImages?: string[]; // Array of image URLs
   isActive?: boolean;
 }
 
@@ -33,16 +35,17 @@ export interface UpdateRoomTypeDto {
   };
   basePrice?: number;
   capacity?: number;
-  bedType?: string;
+  bedType?: $Enums.BedTypeEnum;
   hasPoolView?: boolean;
-  amenities?: string[];
+  amenities?: $Enums.AmenitiesEnum[];
   thumbnailUrl?: string | null;
+  roomImages?: string[]; // Array of image URLs
   isActive?: boolean;
 }
 
 export interface RoomTypeFilter {
   isActive?: boolean;
-  bedType?: string;
+  bedType?: $Enums.BedTypeEnum;
   hasPoolView?: boolean;
   capacityMin?: number;
   capacityMax?: number;
@@ -52,24 +55,70 @@ export interface RoomTypeFilter {
 
 @Injectable()
 export class RoomTypeService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly minio: MinioService,
+  ) {}
 
   async createRoomType(
     createRoomTypeDto: CreateRoomTypeDto,
   ): Promise<RoomType> {
-    return this.prisma.roomType.create({
+    const { roomImages, ...roomTypeData } = createRoomTypeDto;
+    const newThumbnailUrl = roomTypeData.thumbnailUrl
+      ? await this.minio.moveFile(roomTypeData.thumbnailUrl, 'thumbnails')
+      : null;
+
+    const roomType = await this.prisma.roomType.create({
       data: {
-        code: createRoomTypeDto.code,
-        name: createRoomTypeDto.name as Prisma.JsonObject,
-        description:
-          (createRoomTypeDto.description as Prisma.JsonObject) || null,
-        basePrice: createRoomTypeDto.basePrice,
-        capacity: createRoomTypeDto.capacity,
-        bedType: createRoomTypeDto.bedType,
-        hasPoolView: createRoomTypeDto.hasPoolView || false,
-        amenities: createRoomTypeDto.amenities || [],
-        isActive: createRoomTypeDto.isActive ?? true,
+        code: roomTypeData.code,
+        name: roomTypeData.name as Prisma.JsonObject,
+        description: (roomTypeData.description as Prisma.JsonObject) || null,
+        basePrice: roomTypeData.basePrice,
+        capacity: roomTypeData.capacity,
+        bedType: roomTypeData.bedType,
+        hasPoolView: roomTypeData.hasPoolView || false,
+        amenities: roomTypeData.amenities || [],
+        thumbnailUrl: newThumbnailUrl || null,
+        isActive: roomTypeData.isActive ?? true,
       },
+    });
+
+    // Create room images if provided
+    if (roomImages && roomImages.length > 0) {
+      await this.createRoomImages(roomType.id, roomType.code, roomImages);
+    }
+
+    // Return the room type with images included
+    const result = await this.prisma.roomType.findUnique({
+      where: { id: roomType.id },
+      include: {
+        roomImages: true,
+      },
+    });
+
+    if (!result) {
+      throw new Error('Failed to create room type');
+    }
+
+    return result;
+  }
+
+  // Helper method to create room images with auto-generated alt text
+  private async createRoomImages(
+    roomTypeId: string,
+    roomCode: string,
+    imageUrls: string[],
+  ): Promise<void> {
+    const roomImages = imageUrls.map((url, index) => ({
+      roomTypeId,
+      url,
+      alt: `${roomCode}_${index + 1}`,
+      isPrimary: index === 0,
+      sortOrder: index,
+    }));
+
+    await this.prisma.roomImage.createMany({
+      data: roomImages,
     });
   }
 
@@ -113,6 +162,7 @@ export class RoomTypeService {
             status: true,
           },
         },
+        roomImages: true,
       },
     });
   }
@@ -174,39 +224,65 @@ export class RoomTypeService {
     const existingRoomType = await this.prisma.roomType.findUnique({
       where: { id },
     });
+    const newThumbnailUrl = updateRoomTypeDto.thumbnailUrl
+      ? await this.minio.moveFile(updateRoomTypeDto.thumbnailUrl, 'thumbnails')
+      : null;
 
+    console.log({
+      newThumbnailUrl,
+      updateRoomTypeDtoTBM: updateRoomTypeDto.thumbnailUrl,
+    });
     if (!existingRoomType) {
       throw new NotFoundException(`Room type with ID ${id} not found`);
     }
 
-    const updateData: Prisma.RoomTypeUpdateInput = {};
+    const { roomImages, ...updateData } = updateRoomTypeDto;
 
-    if (updateRoomTypeDto.code) updateData.code = updateRoomTypeDto.code;
-    if (updateRoomTypeDto.name)
-      updateData.name = updateRoomTypeDto.name as Prisma.JsonObject;
-    if (updateRoomTypeDto.description !== undefined) {
-      updateData.description =
-        (updateRoomTypeDto.description as Prisma.JsonObject) || null;
+    // Prepare update data
+    const prismaUpdateData: Prisma.RoomTypeUpdateInput = {};
+
+    if (updateData.code) prismaUpdateData.code = updateData.code;
+    if (updateData.name)
+      prismaUpdateData.name = updateData.name as Prisma.JsonObject;
+    if (updateData.description !== undefined) {
+      prismaUpdateData.description =
+        (updateData.description as Prisma.JsonObject) || null;
     }
-    if (updateRoomTypeDto.basePrice)
-      updateData.basePrice = updateRoomTypeDto.basePrice;
-    if (updateRoomTypeDto.capacity)
-      updateData.capacity = updateRoomTypeDto.capacity;
-    if (updateRoomTypeDto.bedType)
-      updateData.bedType = updateRoomTypeDto.bedType;
-    if (updateRoomTypeDto.hasPoolView !== undefined)
-      updateData.hasPoolView = updateRoomTypeDto.hasPoolView;
-    if (updateRoomTypeDto.amenities)
-      updateData.amenities = updateRoomTypeDto.amenities;
-    if (updateRoomTypeDto.thumbnailUrl !== undefined)
-      updateData.thumbnailUrl = updateRoomTypeDto.thumbnailUrl;
-    if (updateRoomTypeDto.isActive !== undefined)
-      updateData.isActive = updateRoomTypeDto.isActive;
+    if (updateData.basePrice) prismaUpdateData.basePrice = updateData.basePrice;
+    if (updateData.capacity) prismaUpdateData.capacity = updateData.capacity;
+    if (updateData.bedType) prismaUpdateData.bedType = updateData.bedType;
+    if (updateData.hasPoolView !== undefined)
+      prismaUpdateData.hasPoolView = updateData.hasPoolView;
+    if (updateData.amenities) prismaUpdateData.amenities = updateData.amenities;
+    if (updateData.thumbnailUrl !== undefined)
+      prismaUpdateData.thumbnailUrl = newThumbnailUrl;
+    if (updateData.isActive !== undefined)
+      prismaUpdateData.isActive = updateData.isActive;
 
-    return this.prisma.roomType.update({
+    // Update room type
+    const updatedRoomType = await this.prisma.roomType.update({
       where: { id },
-      data: updateData,
+      data: prismaUpdateData,
+    });
+
+    // Handle room images update if provided
+    if (roomImages !== undefined) {
+      // Delete existing room images
+      await this.prisma.roomImage.deleteMany({
+        where: { roomTypeId: id },
+      });
+
+      // Create new room images if any provided
+      if (roomImages.length > 0) {
+        await this.createRoomImages(id, updatedRoomType.code, roomImages);
+      }
+    }
+
+    // Return updated room type with images
+    const result = await this.prisma.roomType.findUnique({
+      where: { id },
       include: {
+        roomImages: true,
         rooms: {
           select: {
             id: true,
@@ -216,6 +292,12 @@ export class RoomTypeService {
         },
       },
     });
+
+    if (!result) {
+      throw new Error('Failed to update room type');
+    }
+
+    return result;
   }
 
   async deleteRoomType(id: string): Promise<void> {
@@ -265,5 +347,91 @@ export class RoomTypeService {
       inactive: total - active,
       withRooms,
     };
+  }
+
+  // Delete a single room image by its ID
+  async deleteRoomImage(imageId: string): Promise<void> {
+    const image = await this.prisma.roomImage.findUnique({
+      where: { id: imageId },
+    });
+
+    if (!image) {
+      throw new NotFoundException(`Room image with ID ${imageId} not found`);
+    }
+
+    await this.prisma.roomImage.delete({
+      where: { id: imageId },
+    });
+  }
+
+  // Delete multiple room images by their IDs
+  async deleteRoomImages(
+    imageIds: string[],
+  ): Promise<{ deletedCount: number }> {
+    const result = await this.prisma.roomImage.deleteMany({
+      where: {
+        id: {
+          in: imageIds,
+        },
+      },
+    });
+
+    return { deletedCount: result.count };
+  }
+
+  // Delete all images for a specific room type
+  async deleteAllRoomTypeImages(
+    roomTypeId: string,
+  ): Promise<{ deletedCount: number }> {
+    // Verify room type exists
+    const roomType = await this.prisma.roomType.findUnique({
+      where: { id: roomTypeId },
+    });
+
+    if (!roomType) {
+      throw new NotFoundException(`Room type with ID ${roomTypeId} not found`);
+    }
+
+    const result = await this.prisma.roomImage.deleteMany({
+      where: { roomTypeId },
+    });
+
+    return { deletedCount: result.count };
+  }
+
+  // Get a specific room image by ID
+  async getRoomImage(imageId: string): Promise<{
+    id: string;
+    roomTypeId: string;
+    url: string;
+    alt: string | null;
+    caption: any;
+    isPrimary: boolean;
+    sortOrder: number;
+    createdAt: Date;
+    roomType: {
+      id: string;
+      code: string;
+      name: any;
+    };
+  }> {
+    const image = await this.prisma.roomImage.findUnique({
+      where: { id: imageId },
+      include: {
+        roomType: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!image) {
+      throw new NotFoundException(`Room image with ID ${imageId} not found`);
+    }
+
+    return image;
   }
 }

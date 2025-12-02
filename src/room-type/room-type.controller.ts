@@ -26,6 +26,7 @@ import {
 } from '@nestjs/swagger';
 import { RoomTypeService } from './room-type.service';
 import { MinioService } from '../minio/minio.service';
+import { $Enums } from '../../prisma/generated/prisma';
 import type {
   CreateRoomTypeDto,
   UpdateRoomTypeDto,
@@ -73,7 +74,17 @@ export class RoomTypeController {
         },
         basePrice: { type: 'number', example: 2500 },
         capacity: { type: 'number', example: 2 },
-        bedType: { type: 'string', example: 'Double' },
+        bedType: {
+          type: 'string',
+          enum: [
+            $Enums.BedTypeEnum.SINGLE,
+            $Enums.BedTypeEnum.DOUBLE,
+            $Enums.BedTypeEnum.QUEEN,
+            $Enums.BedTypeEnum.KING,
+            $Enums.BedTypeEnum.TWIN,
+          ],
+          example: 'DOUBLE',
+        },
         hasPoolView: { type: 'boolean', example: false },
         amenities: {
           type: 'array',
@@ -85,6 +96,15 @@ export class RoomTypeController {
           example:
             'http://localhost:9000/hotel-assets/room-types/deluxe-double.jpg',
           description: 'URL of the room type thumbnail image in MinIO storage',
+        },
+        roomImages: {
+          type: 'array',
+          items: { type: 'string' },
+          example: [
+            'http://localhost:9000/hotel-assets/room-images/deluxe-double-1.jpg',
+            'http://localhost:9000/hotel-assets/room-images/deluxe-double-2.jpg',
+          ],
+          description: 'Array of room image URLs for gallery',
         },
         isActive: { type: 'boolean', example: true },
       },
@@ -115,8 +135,8 @@ export class RoomTypeController {
   @ApiQuery({
     name: 'bedType',
     required: false,
-    type: 'string',
-    description: 'Filter by bed type',
+    enum: $Enums.BedTypeEnum,
+    description: 'Filter by bed type (SINGLE, DOUBLE, QUEEN, KING, TWIN)',
   })
   @ApiQuery({
     name: 'hasPoolView',
@@ -171,7 +191,16 @@ export class RoomTypeController {
     }
 
     if (query.bedType) {
-      filter.bedType = query.bedType;
+      // Convert string to enum
+      if (
+        Object.values($Enums.BedTypeEnum).includes(
+          query.bedType as $Enums.BedTypeEnum,
+        )
+      ) {
+        filter.bedType = query.bedType as $Enums.BedTypeEnum;
+      } else {
+        throw new BadRequestException(`Invalid bedType: ${query.bedType}`);
+      }
     }
 
     if (query.hasPoolView !== undefined) {
@@ -320,7 +349,17 @@ export class RoomTypeController {
         },
         basePrice: { type: 'number' },
         capacity: { type: 'number' },
-        bedType: { type: 'string' },
+        bedType: {
+          type: 'string',
+          enum: [
+            $Enums.BedTypeEnum.SINGLE,
+            $Enums.BedTypeEnum.DOUBLE,
+            $Enums.BedTypeEnum.QUEEN,
+            $Enums.BedTypeEnum.KING,
+            $Enums.BedTypeEnum.TWIN,
+          ],
+          example: 'DOUBLE',
+        },
         hasPoolView: { type: 'boolean' },
         amenities: {
           type: 'array',
@@ -329,6 +368,12 @@ export class RoomTypeController {
         thumbnailUrl: {
           type: 'string',
           description: 'URL of the room type thumbnail image',
+        },
+        roomImages: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Array of room image URLs for gallery. Will replace existing images.',
         },
         isActive: { type: 'boolean' },
       },
@@ -371,6 +416,139 @@ export class RoomTypeController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteRoomType(@Param('id') id: string) {
     await this.roomTypeService.deleteRoomType(id);
+  }
+
+  @Delete(':roomTypeId/images/:imageId')
+  @ApiOperation({
+    summary: 'Delete a specific room image',
+    description: 'Deletes a single room image by its ID',
+  })
+  @ApiParam({
+    name: 'roomTypeId',
+    type: 'string',
+    description: 'Room type ID',
+  })
+  @ApiParam({
+    name: 'imageId',
+    type: 'string',
+    description: 'Room image ID to delete',
+  })
+  @ApiResponse({
+    status: 204,
+    description: 'Room image deleted successfully',
+  })
+  @ApiNotFoundResponse({
+    description: 'Room image not found',
+  })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteRoomImage(
+    @Param('roomTypeId') roomTypeId: string,
+    @Param('imageId') imageId: string,
+  ) {
+    // Verify the image belongs to the specified room type
+    const image = await this.roomTypeService.getRoomImage(imageId);
+    if (image.roomTypeId !== roomTypeId) {
+      throw new BadRequestException(
+        'Image does not belong to the specified room type',
+      );
+    }
+    await this.roomTypeService.deleteRoomImage(imageId);
+  }
+
+  @Delete(':roomTypeId/images')
+  @ApiOperation({
+    summary: 'Delete multiple room images',
+    description:
+      'Deletes multiple room images by their IDs or all images for a room type',
+  })
+  @ApiParam({
+    name: 'roomTypeId',
+    type: 'string',
+    description: 'Room type ID',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        imageIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Array of image IDs to delete. If not provided, all images for the room type will be deleted.',
+          example: ['uuid-1', 'uuid-2'],
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Images deleted successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        deletedCount: { type: 'number', example: 3 },
+        message: { type: 'string', example: 'Successfully deleted 3 images' },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Room type not found',
+  })
+  async deleteRoomImages(
+    @Param('roomTypeId') roomTypeId: string,
+    @Body() body?: { imageIds?: string[] },
+  ) {
+    let result: { deletedCount: number };
+
+    if (body?.imageIds && body.imageIds.length > 0) {
+      // Delete specific images
+      result = await this.roomTypeService.deleteRoomImages(body.imageIds);
+    } else {
+      // Delete all images for the room type
+      result = await this.roomTypeService.deleteAllRoomTypeImages(roomTypeId);
+    }
+
+    return {
+      ...result,
+      message: `Successfully deleted ${result.deletedCount} images`,
+    };
+  }
+
+  @Get(':roomTypeId/images/:imageId')
+  @ApiOperation({
+    summary: 'Get room image details',
+    description: 'Retrieves details of a specific room image',
+  })
+  @ApiParam({
+    name: 'roomTypeId',
+    type: 'string',
+    description: 'Room type ID',
+  })
+  @ApiParam({
+    name: 'imageId',
+    type: 'string',
+    description: 'Room image ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Room image details retrieved successfully',
+  })
+  @ApiNotFoundResponse({
+    description: 'Room image not found',
+  })
+  async getRoomImage(
+    @Param('roomTypeId') roomTypeId: string,
+    @Param('imageId') imageId: string,
+  ) {
+    const image = await this.roomTypeService.getRoomImage(imageId);
+
+    if (image.roomTypeId !== roomTypeId) {
+      throw new BadRequestException(
+        'Image does not belong to the specified room type',
+      );
+    }
+
+    return image;
   }
 
   @Post(':id/thumbnail')

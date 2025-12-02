@@ -16,6 +16,14 @@ async function bootstrap() {
     }),
   );
 
+  // Enable CORS for all origins
+  app.enableCors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    credentials: false,
+  });
+
   // Register multipart support for file uploads
   await app.register(fastifyMultipart, {
     limits: {
@@ -69,3 +77,4 @@ async function bootstrap() {
 }
 
 void bootstrap();
+3;
