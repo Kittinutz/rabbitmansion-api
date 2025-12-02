@@ -109,7 +109,21 @@ export class RoomTypeService {
     roomCode: string,
     imageUrls: string[],
   ): Promise<void> {
-    const roomImages = imageUrls.map((url, index) => ({
+    // Move files from temp to room code directory and get new URLs
+    // Only move if the file is not already in the correct location
+    const movedImageUrls = await Promise.all(
+      imageUrls.map(async (url) => {
+        try {
+          return await this.minio.moveFile(url, `room-types/${roomCode}`);
+        } catch (error) {
+          // If move fails (e.g., file already in location), return original URL
+          console.warn(`Failed to move image ${url}:`, error.message);
+          return url;
+        }
+      }),
+    );
+
+    const roomImages = movedImageUrls.map((url, index) => ({
       roomTypeId,
       url,
       alt: `${roomCode}_${index + 1}`,

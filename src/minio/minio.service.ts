@@ -273,6 +273,19 @@ export class MinioService implements OnModuleInit {
       // Create new key with new directory
       const newKey = `${newDirectory}/${fileName}`;
 
+      // Check if file is already in the target location
+      if (currentKey === newKey) {
+        this.logger.log(`📁 File already in target location: ${newKey}`);
+        return currentUrl; // Return original URL since no move needed
+      }
+
+      // Check if target file already exists
+      const targetExists = await this.fileExists(newKey);
+      if (targetExists) {
+        this.logger.log(`📁 Target file already exists: ${newKey}`);
+        return this.getFileUrl(newKey); // Return URL to existing file
+      }
+
       // Copy object to new location (correct format: bucket/object)
       await this.minioClient.copyObject(
         this.bucketName,
