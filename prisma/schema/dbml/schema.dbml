@@ -1,0 +1,410 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Table bookings {
+  id String [pk]
+  bookingNumber String [unique, not null]
+  guestId String [not null]
+  roomId String [not null]
+  checkInDate DateTime [not null]
+  checkOutDate DateTime [not null]
+  actualCheckIn DateTime
+  actualCheckOut DateTime
+  numberOfGuests Int [not null, default: 1]
+  numberOfChildren Int [not null, default: 0]
+  specialRequests String
+  roomRate Float [not null]
+  totalAmount Float [not null]
+  taxAmount Float [not null, default: 0]
+  serviceCharges Float [not null, default: 0]
+  discountAmount Float [not null, default: 0]
+  finalAmount Float [not null]
+  status BookingStatus [not null, default: 'PENDING']
+  source String
+  notes String
+  cancellationReason String
+  createdById String
+  updatedById String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  services booking_services [not null]
+  createdBy admins
+  guest guests [not null]
+  room rooms [not null]
+  updatedBy admins
+  payments payments [not null]
+  reviews reviews [not null]
+}
+
+Table reviews {
+  id String [pk]
+  bookingId String [not null]
+  guestId String [not null]
+  rating Int [not null]
+  title String
+  comment String
+  response String
+  isVerified Boolean [not null, default: false]
+  isPublic Boolean [not null, default: true]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  booking bookings [not null]
+  guest guests [not null]
+}
+
+Table loyalty_programs {
+  id String [pk]
+  guestId String [unique, not null]
+  points Int [not null, default: 0]
+  tier String [not null, default: 'BRONZE']
+  joinDate DateTime [default: `now()`, not null]
+  lastUpdated DateTime [not null]
+  guest guests [not null]
+}
+
+Table payments {
+  id String [pk]
+  bookingId String [not null]
+  amount Float [not null]
+  currency String [not null, default: 'THB']
+  paymentMethod PaymentMethod [not null]
+  status PaymentStatus [not null, default: 'PENDING']
+  transactionId String
+  gatewayResponse Json
+  paidAt DateTime
+  description String
+  notes String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  booking bookings [not null]
+  refunds refunds [not null]
+}
+
+Table refunds {
+  id String [pk]
+  paymentId String [not null]
+  amount Float [not null]
+  reason String [not null]
+  status RefundStatus [not null, default: 'PENDING']
+  processedAt DateTime
+  notes String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  payment payments [not null]
+}
+
+Table daily_revenue {
+  id String [pk]
+  date DateTime [unique, not null]
+  roomRevenue Float [not null, default: 0]
+  serviceRevenue Float [not null, default: 0]
+  totalRevenue Float [not null, default: 0]
+  occupancyRate Float [not null, default: 0]
+  adr Float [not null, default: 0]
+  revpar Float [not null, default: 0]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table RoomType {
+  id String [pk]
+  code String [unique, not null]
+  name Json [not null]
+  description Json
+  basePrice Float [not null]
+  capacity Int [not null]
+  hasPoolView Boolean [not null, default: false]
+  thumbnailUrl String
+  isActive Boolean [not null, default: true]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  bannerImage String
+  bedCount Int [not null, default: 1]
+  galleryImages String[] [not null]
+  mainImage String
+  petFriendly Boolean [not null, default: false]
+  seasonalPricing Json
+  smokingAllowed Boolean [not null, default: false]
+  view String
+  bedType BedTypeEnum [not null]
+  amenities AmenitiesEnum[] [not null]
+  roomImages room_images [not null]
+  rooms rooms [not null]
+}
+
+Table rooms {
+  id String [pk]
+  roomNumber String [unique, not null]
+  roomTypeId String [not null]
+  status RoomStatus [not null, default: 'AVAILABLE']
+  floor Int [not null]
+  size Float
+  accessible Boolean [not null, default: false]
+  lastCleaned DateTime
+  lastMaintenance DateTime
+  notes String
+  isActive Boolean [not null, default: true]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  bookings bookings [not null]
+  maintenanceLogs maintenance_logs [not null]
+  roomType RoomType [not null]
+}
+
+Table room_images {
+  id String [pk]
+  url String [not null]
+  alt String
+  caption Json
+  isPrimary Boolean [not null, default: false]
+  sortOrder Int [not null, default: 0]
+  createdAt DateTime [default: `now()`, not null]
+  roomTypeId String [not null]
+  roomType RoomType [not null]
+}
+
+Table maintenance_logs {
+  id String [pk]
+  roomId String [not null]
+  type String [not null]
+  description String [not null]
+  cost Float
+  performedBy String [not null]
+  startTime DateTime [not null]
+  endTime DateTime
+  isCompleted Boolean [not null, default: false]
+  notes String
+  createdAt DateTime [default: `now()`, not null]
+  room rooms [not null]
+}
+
+Table services {
+  id String [pk]
+  code String [unique, not null]
+  category ServiceCategory [not null]
+  status ServiceStatus [not null, default: 'ACTIVE']
+  name Json [not null]
+  description Json [not null]
+  basePrice Float [not null]
+  currency String [not null, default: 'THB']
+  taxRate Float [not null, default: 0.07]
+  isActive Boolean [not null, default: true]
+  availableFrom DateTime
+  availableTo DateTime
+  maxQuantity Int
+  requiresApproval Boolean [not null, default: false]
+  notes String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  bookingServices booking_services [not null]
+}
+
+Table booking_services {
+  id String [pk]
+  bookingId String [not null]
+  serviceId String [not null]
+  quantity Int [not null, default: 1]
+  unitPrice Float [not null]
+  totalPrice Float [not null]
+  notes String
+  createdAt DateTime [default: `now()`, not null]
+  booking bookings [not null]
+  service services [not null]
+}
+
+Table audit_logs {
+  id String [pk]
+  adminId String [not null]
+  action AuditAction [not null]
+  entity String [not null]
+  entityId String [not null]
+  oldValues Json
+  newValues Json
+  ipAddress String
+  userAgent String
+  createdAt DateTime [default: `now()`, not null]
+  admin admins [not null]
+}
+
+Table settings {
+  id String [pk]
+  key String [unique, not null]
+  value Json [not null]
+  category String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table admins {
+  id String [pk]
+  email String [unique, not null]
+  username String [unique, not null]
+  password String [not null]
+  firstName String [not null]
+  lastName String [not null]
+  role String [not null, default: 'ADMIN']
+  isActive Boolean [not null, default: true]
+  lastLogin DateTime
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  auditLogs audit_logs [not null]
+  createdBookings bookings [not null]
+  updatedBookings bookings [not null]
+}
+
+Table guests {
+  id String [pk]
+  email String [unique, not null]
+  phone String
+  firstName String [not null]
+  lastName String [not null]
+  dateOfBirth DateTime
+  nationality String
+  passport String
+  address String
+  city String
+  country String
+  postalCode String
+  preferences String[] [not null]
+  status GuestStatus [not null, default: 'ACTIVE']
+  vipLevel Int [not null, default: 0]
+  totalStays Int [not null, default: 0]
+  totalSpent Float [not null, default: 0]
+  notes String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  bookings bookings [not null]
+  loyaltyProgram loyalty_programs
+  reviews reviews [not null]
+}
+
+Enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+  OUT_OF_ORDER
+  CLEANING
+}
+
+Enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+Enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIALLY_PAID
+  REFUNDED
+  FAILED
+}
+
+Enum PaymentMethod {
+  CREDIT_CARD
+  DEBIT_CARD
+  CASH
+  BANK_TRANSFER
+  MOBILE_PAYMENT
+}
+
+Enum BedTypeEnum {
+  SINGLE
+  DOUBLE
+  QUEEN
+  KING
+  TWIN
+}
+
+Enum ServiceCategory {
+  ROOM_SERVICE
+  SPA
+  TRANSPORTATION
+  DINING
+  LAUNDRY
+  ENTERTAINMENT
+  BUSINESS
+}
+
+Enum ServiceStatus {
+  ACTIVE
+  INACTIVE
+  SEASONAL
+}
+
+Enum GuestStatus {
+  ACTIVE
+  BLOCKED
+  VIP
+}
+
+Enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSED
+}
+
+Enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+}
+
+Enum AmenitiesEnum {
+  WIFI
+  AIR_CONDITIONING
+  MINIBAR
+  SAFE
+  TV
+  BALCONY
+  BATHTUB
+  SHOWER
+  DESK
+  BED
+  LIVING_ROOM
+  KITCHEN
+  BATHROOM
+  KING_SIZE_BED
+  QUEEN_SIZE_BED
+  TWIN_BEDS
+  ROOM_SERVICE
+  CITY_VIEW
+  POOL_VIEW
+}
+
+Ref: bookings.createdById > admins.id
+
+Ref: bookings.guestId > guests.id
+
+Ref: bookings.roomId > rooms.id
+
+Ref: bookings.updatedById > admins.id
+
+Ref: reviews.bookingId > bookings.id
+
+Ref: reviews.guestId > guests.id
+
+Ref: loyalty_programs.guestId - guests.id
+
+Ref: payments.bookingId > bookings.id
+
+Ref: refunds.paymentId > payments.id
+
+Ref: rooms.roomTypeId > RoomType.id
+
+Ref: room_images.roomTypeId > RoomType.id [delete: Cascade]
+
+Ref: maintenance_logs.roomId > rooms.id
+
+Ref: booking_services.bookingId > bookings.id [delete: Cascade]
+
+Ref: booking_services.serviceId > services.id
+
+Ref: audit_logs.adminId > admins.id

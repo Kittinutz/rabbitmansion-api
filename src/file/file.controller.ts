@@ -12,7 +12,6 @@ import {
   Req,
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
-import type { MultipartFile } from '@fastify/multipart';
 import {
   ApiTags,
   ApiOperation,
@@ -24,13 +23,6 @@ import {
   ApiNotFoundResponse,
 } from '@nestjs/swagger';
 import { MinioService } from '../minio/minio.service';
-
-interface UploadFile {
-  originalname: string;
-  mimetype: string;
-  buffer: Buffer;
-  size: number;
-}
 
 @ApiTags('files')
 @Controller('files')
