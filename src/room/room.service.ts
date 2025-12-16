@@ -1,5 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, RoomStatus } from '../../prisma/generated/prisma';
+import {
+  Prisma,
+  RoomStatus,
+  RoomBookingStatus,
+} from '../../prisma/generated/prisma';
 import { PrismaService } from 'src/prima/prisma.service';
 
 export interface CreateRoomDto {
@@ -25,6 +29,14 @@ export interface RoomFilter {
   floor?: number;
   priceMin?: number;
   priceMax?: number;
+}
+
+export interface RoomAvailabilityFilter {
+  checkInDate: Date;
+  checkOutDate: Date;
+  roomTypeId?: string;
+  floor?: number;
+  capacity?: number;
 }
 
 @Injectable()
@@ -96,10 +108,27 @@ export class RoomService {
     });
   }
 
-  async getAvailableRooms() {
+  async getAvailableRooms(availabilityFilter?: RoomAvailabilityFilter) {
+    if (availabilityFilter) {
+      return this.getAvailableRoomsByDate(availabilityFilter);
+    }
+
     return this.prisma.room.findMany({
-      where: { status: 'AVAILABLE' },
-      include: { roomType: true },
+      where: {
+        status: 'AVAILABLE',
+        isActive: true,
+      },
+      include: {
+        roomType: true,
+        roomBookings: {
+          where: {
+            status: { in: ['ASSIGNED', 'CHECKED_IN'] },
+          },
+          include: {
+            booking: true,
+          },
+        },
+      },
       orderBy: [{ floor: 'asc' }, { roomNumber: 'asc' }],
     });
   }
@@ -136,7 +165,19 @@ export class RoomService {
   async getRoomById(id: string) {
     const room = await this.prisma.room.findUnique({
       where: { id },
-      include: { roomType: true },
+      include: {
+        roomType: true,
+        roomBookings: {
+          include: {
+            booking: {
+              include: {
+                guest: true,
+              },
+            },
+          },
+          orderBy: { checkInDate: 'asc' },
+        },
+      },
     });
 
     if (!room) {
@@ -252,6 +293,162 @@ export class RoomService {
         code: rt.code,
         name: rt.name,
         count: createdRooms.filter((r) => r.roomTypeId === rt.id).length,
+      })),
+    };
+  }
+
+  async getAvailableRoomsByDate(filter: RoomAvailabilityFilter) {
+    const where: Prisma.RoomWhereInput = {
+      isActive: true,
+      ...(filter.roomTypeId && { roomTypeId: filter.roomTypeId }),
+      ...(filter.floor && { floor: filter.floor }),
+      ...(filter.capacity && {
+        roomType: {
+          capacity: { gte: filter.capacity },
+        },
+      }),
+    };
+
+    const rooms = await this.prisma.room.findMany({
+      where,
+      include: {
+        roomType: true,
+        roomBookings: {
+          where: {
+            status: { in: ['ASSIGNED', 'CHECKED_IN'] },
+            OR: [
+              {
+                AND: [
+                  { checkInDate: { lte: filter.checkInDate } },
+                  { checkOutDate: { gt: filter.checkInDate } },
+                ],
+              },
+              {
+                AND: [
+                  { checkInDate: { lt: filter.checkOutDate } },
+                  { checkOutDate: { gte: filter.checkOutDate } },
+                ],
+              },
+              {
+                AND: [
+                  { checkInDate: { gte: filter.checkInDate } },
+                  { checkOutDate: { lte: filter.checkOutDate } },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      orderBy: [{ floor: 'asc' }, { roomNumber: 'asc' }],
+    });
+
+    // Filter out rooms that have conflicting bookings
+    return rooms.filter((room) => room.roomBookings.length === 0);
+  }
+
+  async getRoomAvailability(roomId: string, startDate: Date, endDate: Date) {
+    const room = await this.prisma.room.findUnique({
+      where: { id: roomId },
+      include: {
+        roomType: true,
+        roomBookings: {
+          where: {
+            status: { in: ['ASSIGNED', 'CHECKED_IN'] },
+            AND: [
+              { checkOutDate: { gt: startDate } },
+              { checkInDate: { lt: endDate } },
+            ],
+          },
+          include: {
+            booking: {
+              include: {
+                guest: true,
+              },
+            },
+          },
+          orderBy: { checkInDate: 'asc' },
+        },
+      },
+    });
+
+    if (!room) {
+      throw new NotFoundException(`Room with ID ${roomId} not found`);
+    }
+
+    return {
+      room: {
+        id: room.id,
+        roomNumber: room.roomNumber,
+        status: room.status,
+        roomType: room.roomType,
+      },
+      isAvailable: room.roomBookings.length === 0,
+      conflictingBookings: room.roomBookings.map((rb) => ({
+        id: rb.booking.id,
+        bookingNumber: rb.booking.bookingNumber,
+        guestName: rb.booking.guest.firstName + ' ' + rb.booking.guest.lastName,
+        checkInDate: rb.checkInDate,
+        checkOutDate: rb.checkOutDate,
+        status: rb.status,
+      })),
+    };
+  }
+
+  async getRoomOccupancyReport(startDate?: Date, endDate?: Date) {
+    const start = startDate || new Date();
+    const end = endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
+
+    const totalRooms = await this.prisma.room.count({
+      where: { isActive: true },
+    });
+
+    const occupiedRooms = await this.prisma.roomBooking.findMany({
+      where: {
+        status: { in: ['ASSIGNED', 'CHECKED_IN'] },
+        AND: [{ checkOutDate: { gt: start } }, { checkInDate: { lt: end } }],
+      },
+      include: {
+        room: {
+          include: {
+            roomType: true,
+          },
+        },
+        booking: {
+          include: {
+            guest: true,
+          },
+        },
+      },
+    });
+
+    const occupancyRate =
+      totalRooms > 0 ? (occupiedRooms.length / totalRooms) * 100 : 0;
+    const totalRevenue = occupiedRooms.reduce(
+      (sum, rb) => sum + rb.roomRate,
+      0,
+    );
+    const averageDailyRate =
+      occupiedRooms.length > 0 ? totalRevenue / occupiedRooms.length : 0;
+
+    return {
+      totalRooms,
+      occupiedRooms: occupiedRooms.length,
+      availableRooms: totalRooms - occupiedRooms.length,
+      occupancyRate: parseFloat(occupancyRate.toFixed(2)),
+      totalRevenue: parseFloat(totalRevenue.toFixed(2)),
+      averageDailyRate: parseFloat(averageDailyRate.toFixed(2)),
+      period: {
+        startDate: start,
+        endDate: end,
+      },
+      roomDetails: occupiedRooms.map((rb) => ({
+        roomNumber: rb.room.roomNumber,
+        roomType: rb.room.roomType.code,
+        guestName: rb.booking.guest.firstName + ' ' + rb.booking.guest.lastName,
+        checkInDate: rb.checkInDate,
+        checkOutDate: rb.checkOutDate,
+        rate: rb.roomRate,
+        status: rb.status,
       })),
     };
   }

@@ -9,6 +9,8 @@ import { RoomService } from './room/room.service';
 import { RoomController } from './room/room.controller';
 import { RoomTypeController } from './room-type/room-type.controller';
 import { RoomTypeService } from './room-type/room-type.service';
+import { BookingController } from './booking/booking.controller';
+import { BookingService } from './booking/booking.service';
 
 @Module({
   imports: [
@@ -22,6 +24,7 @@ import { RoomTypeService } from './room-type/room-type.service';
     FileController,
     RoomController,
     RoomTypeController,
+    BookingController,
   ],
   providers: [
     AppService,
@@ -29,6 +32,7 @@ import { RoomTypeService } from './room-type/room-type.service';
     MinioService,
     RoomService,
     RoomTypeService,
+    BookingService,
   ],
 })
 export class AppModule {}

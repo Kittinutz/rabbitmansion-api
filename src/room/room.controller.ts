@@ -23,7 +23,12 @@ import {
   ApiNotFoundResponse,
 } from '@nestjs/swagger';
 import { RoomService } from './room.service';
-import type { CreateRoomDto, UpdateRoomDto, RoomFilter } from './room.service';
+import type {
+  CreateRoomDto,
+  UpdateRoomDto,
+  RoomFilter,
+  RoomAvailabilityFilter,
+} from './room.service';
 import { RoomStatus } from '../../prisma/generated/prisma/';
 
 @ApiTags('rooms')
@@ -167,14 +172,76 @@ export class RoomController {
   @Get('available')
   @ApiOperation({
     summary: 'Get all available rooms',
-    description: 'Retrieves all rooms with AVAILABLE status',
+    description:
+      'Retrieves all rooms with AVAILABLE status, optionally filtered by date range',
+  })
+  @ApiQuery({
+    name: 'checkInDate',
+    required: false,
+    type: 'string',
+    description: 'Check-in date (ISO string)',
+  })
+  @ApiQuery({
+    name: 'checkOutDate',
+    required: false,
+    type: 'string',
+    description: 'Check-out date (ISO string)',
+  })
+  @ApiQuery({
+    name: 'roomTypeId',
+    required: false,
+    type: 'string',
+    description: 'Filter by room type ID',
+  })
+  @ApiQuery({
+    name: 'floor',
+    required: false,
+    type: 'number',
+    description: 'Filter by floor',
+  })
+  @ApiQuery({
+    name: 'capacity',
+    required: false,
+    type: 'number',
+    description: 'Minimum capacity required',
   })
   @ApiResponse({
     status: 200,
     description: 'Available rooms retrieved successfully',
   })
-  async getAvailableRooms() {
-    return this.roomService.getAvailableRooms();
+  async getAvailableRooms(
+    @Query('checkInDate') checkInDate?: string,
+    @Query('checkOutDate') checkOutDate?: string,
+    @Query('roomTypeId') roomTypeId?: string,
+    @Query('floor') floor?: number,
+    @Query('capacity') capacity?: number,
+  ) {
+    let availabilityFilter: RoomAvailabilityFilter | undefined;
+
+    if (checkInDate && checkOutDate) {
+      const checkIn = new Date(checkInDate);
+      const checkOut = new Date(checkOutDate);
+
+      if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) {
+        throw new BadRequestException('Invalid date format');
+      }
+
+      if (checkIn >= checkOut) {
+        throw new BadRequestException(
+          'Check-in date must be before check-out date',
+        );
+      }
+
+      availabilityFilter = {
+        checkInDate: checkIn,
+        checkOutDate: checkOut,
+        ...(roomTypeId && { roomTypeId }),
+        ...(floor && { floor }),
+        ...(capacity && { capacity }),
+      };
+    }
+
+    return this.roomService.getAvailableRooms(availabilityFilter);
   }
 
   @Get('type/:roomTypeId')
@@ -400,5 +467,95 @@ export class RoomController {
   })
   async initializeAllRooms() {
     return this.roomService.initializeAllRooms();
+  }
+
+  @Get(':id/availability')
+  @ApiOperation({
+    summary: 'Check room availability',
+    description: 'Check if a specific room is available for a given date range',
+  })
+  @ApiParam({ name: 'id', type: 'string', description: 'Room ID' })
+  @ApiQuery({
+    name: 'startDate',
+    required: true,
+    type: 'string',
+    description: 'Start date (ISO string)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: true,
+    type: 'string',
+    description: 'End date (ISO string)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Room availability information retrieved successfully',
+  })
+  async getRoomAvailability(
+    @Param('id') id: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      throw new BadRequestException('Invalid date format');
+    }
+
+    if (start >= end) {
+      throw new BadRequestException('Start date must be before end date');
+    }
+
+    return this.roomService.getRoomAvailability(id, start, end);
+  }
+
+  @Get('reports/occupancy')
+  @ApiOperation({
+    summary: 'Get occupancy report',
+    description: 'Get detailed occupancy statistics and revenue data',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    type: 'string',
+    description: 'Start date for report (ISO string)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    type: 'string',
+    description: 'End date for report (ISO string)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Occupancy report generated successfully',
+  })
+  async getRoomOccupancyReport(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    let start: Date | undefined;
+    let end: Date | undefined;
+
+    if (startDate) {
+      start = new Date(startDate);
+      if (isNaN(start.getTime())) {
+        throw new BadRequestException('Invalid start date format');
+      }
+    }
+
+    if (endDate) {
+      end = new Date(endDate);
+      if (isNaN(end.getTime())) {
+        throw new BadRequestException('Invalid end date format');
+      }
+    }
+
+    if (start && end && start >= end) {
+      throw new BadRequestException('Start date must be before end date');
+    }
+
+    return this.roomService.getRoomOccupancyReport(start, end);
   }
 }

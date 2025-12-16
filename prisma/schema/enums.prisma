@@ -6,6 +6,13 @@ enum RoomStatus {
   CLEANING
 }
 
+enum RoomBookingStatus {
+  ASSIGNED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
 enum BookingStatus {
   PENDING
   CONFIRMED

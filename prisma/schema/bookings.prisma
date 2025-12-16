@@ -2,7 +2,6 @@ model Booking {
   id                 String           @id @default(cuid())
   bookingNumber      String           @unique
   guestId            String
-  roomId             String
   checkInDate        DateTime
   checkOutDate       DateTime
   actualCheckIn      DateTime?
@@ -10,7 +9,6 @@ model Booking {
   numberOfGuests     Int              @default(1)
   numberOfChildren   Int              @default(0)
   specialRequests    String?
-  roomRate           Float
   totalAmount        Float
   taxAmount          Float            @default(0)
   serviceCharges     Float            @default(0)
@@ -27,15 +25,38 @@ model Booking {
   services           BookingService[]
   createdBy          Admin?           @relation("AdminCreatedBookings", fields: [createdById], references: [id])
   guest              Guest            @relation(fields: [guestId], references: [id])
-  room               Room             @relation(fields: [roomId], references: [id])
   updatedBy          Admin?           @relation("AdminUpdatedBookings", fields: [updatedById], references: [id])
   payments           Payment[]
   reviews            Review[]
+  roomBookings       RoomBooking[]
 
   @@index([checkInDate])
   @@index([checkOutDate])
   @@index([status])
   @@index([guestId])
-  @@index([roomId])
   @@map("bookings")
+}
+
+model RoomBooking {
+  id          String   @id @default(uuid())
+  roomId      String
+  bookingId   String
+  roomRate    Float
+  checkInDate DateTime
+  checkOutDate DateTime
+  assignedAt  DateTime @default(now())
+  status      RoomBookingStatus @default(ASSIGNED)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, bookingId])
+  @@index([roomId])
+  @@index([bookingId])
+  @@index([checkInDate])
+  @@index([checkOutDate])
+  @@map("room_bookings")
 }
