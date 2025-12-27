@@ -1,5 +1,5 @@
 model AuditLog {
-  id        String      @id @default(cuid())
+  id        String      @id @default(uuid())
   adminId   String
   action    AuditAction
   entity    String
@@ -19,7 +19,7 @@ model AuditLog {
 }
 
 model Settings {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   key       String   @unique
   value     Json
   category  String?

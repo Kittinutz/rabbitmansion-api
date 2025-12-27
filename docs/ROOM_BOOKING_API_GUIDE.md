@@ -56,7 +56,7 @@ model RoomBooking {
 
 ```prisma
 model Booking {
-  id                 String           @id @default(cuid())
+  id                 String           @id @default(uuid())
   bookingNumber      String           @unique
   guestId            String
   // Removed: roomId (now handled via RoomBooking)

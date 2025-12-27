@@ -1,5 +1,5 @@
 model Payment {
-  id              String        @id @default(cuid())
+  id              String        @id @default(uuid())
   bookingId       String
   amount          Float
   currency        String        @default("THB")
@@ -21,7 +21,7 @@ model Payment {
 }
 
 model Refund {
-  id          String       @id @default(cuid())
+  id          String       @id @default(uuid())
   paymentId   String
   amount      Float
   reason      String
@@ -38,7 +38,7 @@ model Refund {
 }
 
 model DailyRevenue {
-  id             String   @id @default(cuid())
+  id             String   @id @default(uuid())
   date           DateTime @unique @db.Date
   roomRevenue    Float    @default(0)
   serviceRevenue Float    @default(0)

@@ -1,5 +1,5 @@
 model Admin {
-  id              String     @id @default(cuid())
+  id              String     @id @default(uuid())
   email           String     @unique
   username        String     @unique
   password        String
@@ -18,9 +18,10 @@ model Admin {
 }
 
 model Guest {
-  id             String          @id @default(cuid())
+  id             String          @id @default(uuid())
   email          String          @unique
   phone          String?
+  whatsapp       String?
   firstName      String
   lastName       String
   dateOfBirth    DateTime?

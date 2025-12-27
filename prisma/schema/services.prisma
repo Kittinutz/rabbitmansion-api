@@ -1,5 +1,5 @@
 model Service {
-  id               String           @id @default(cuid())
+  id               String           @id @default(uuid())
   code             String           @unique
   category         ServiceCategory
   status           ServiceStatus    @default(ACTIVE)
@@ -25,7 +25,7 @@ model Service {
 }
 
 model BookingService {
-  id         String   @id @default(cuid())
+  id         String   @id @default(uuid())
   bookingId  String
   serviceId  String
   quantity   Int      @default(1)

@@ -13,7 +13,6 @@ import {
 import {
   ApiTags,
   ApiOperation,
-  ApiResponse,
   ApiParam,
   ApiQuery,
   ApiBody,
@@ -28,6 +27,7 @@ import type {
   UpdateBookingDto,
   AssignRoomToBookingDto,
 } from './booking.service';
+import { CreateBookingRequestDto, BookingResponseDto } from './dto';
 import { BookingStatus } from '../../prisma/generated/prisma';
 
 @ApiTags('bookings')
@@ -37,9 +37,29 @@ export class BookingController {
 
   @Post()
   @ApiOperation({
-    summary: 'Create a new booking',
+    summary: 'Create booking from guest request',
     description:
-      'Creates a new booking with one or more room assignments. Supports single-room, multi-room, and group bookings. Automatically validates room availability and calculates pricing with taxes and service charges.',
+      'Creates a new booking request from guest information. Automatically creates or updates guest profile, calculates pricing with taxes. Room assignment will be handled by admin later.',
+  })
+  @ApiBody({ type: CreateBookingRequestDto })
+  @ApiCreatedResponse({
+    description: 'Booking created successfully',
+    type: BookingResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid input or validation error',
+  })
+  async createBookingRequest(
+    @Body(ValidationPipe) dto: CreateBookingRequestDto,
+  ): Promise<BookingResponseDto> {
+    return this.bookingService.createBookingFromRequest(dto);
+  }
+
+  @Post('admin')
+  @ApiOperation({
+    summary: 'Create booking (Admin)',
+    description:
+      'Admin endpoint to create a booking with specific room assignments. Supports single-room, multi-room, and group bookings. Automatically validates room availability and calculates pricing with taxes and service charges.',
   })
   @ApiBody({
     description: 'Booking creation data',

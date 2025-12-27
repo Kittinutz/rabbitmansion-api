@@ -4,12 +4,24 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prima/prisma.service';
-import type { Booking, RoomBooking } from '../../prisma/generated/prisma';
+import type {
+  Booking,
+  RoomBooking,
+  Guest,
+  RoomType,
+} from '../../prisma/generated/prisma';
 import {
   RoomStatus,
   BookingStatus,
   RoomBookingStatus,
+  GuestStatus,
 } from '../../prisma/generated/prisma';
+import dayjs from 'dayjs';
+import {
+  CreateBookingRequestDto,
+  BookingResponseDto,
+  PriceBreakdown,
+} from './dto';
 
 export interface CreateBookingDto {
   guestId: string;
@@ -508,5 +520,210 @@ export class BookingService {
     }
 
     return `${prefix}${String(sequence).padStart(4, '0')}`;
+  }
+
+  // New methods for booking request flow
+  async findOrCreateGuest(data: {
+    fullName: string;
+    email: string;
+    phone: string;
+    whatsapp?: string;
+  }): Promise<Guest> {
+    // 1. Check if guest exists by email
+    let guest = await this.prisma.guest.findUnique({
+      where: { email: data.email },
+    });
+
+    // 2. If not exists, create new guest
+    if (!guest) {
+      const [firstName, ...lastNameParts] = data.fullName.split(' ');
+      const lastName = lastNameParts.join(' ') || firstName;
+
+      guest = await this.prisma.guest.create({
+        data: {
+          email: data.email,
+          phone: data.phone,
+          whatsapp: data.whatsapp,
+          firstName,
+          lastName,
+          status: GuestStatus.ACTIVE,
+        },
+      });
+    } else {
+      // 3. Update guest info if exists (phone/whatsapp may have changed)
+      guest = await this.prisma.guest.update({
+        where: { id: guest.id },
+        data: {
+          phone: data.phone,
+          whatsapp: data.whatsapp || (guest.whatsapp as string | null),
+        },
+      });
+    }
+
+    return guest;
+  }
+
+  async getRoomTypeById(roomTypeId: string): Promise<RoomType> {
+    // 1. Find room type by ID
+    const roomType = await this.prisma.roomType.findUnique({
+      where: { id: roomTypeId },
+    });
+
+    // 2. Validate room type exists
+    if (!roomType) {
+      throw new NotFoundException(`Room type with ID ${roomTypeId} not found`);
+    }
+
+    return roomType;
+  }
+
+  calculatePriceBreakdown(
+    basePrice: number,
+    numberOfNights: number,
+    numberOfRooms: number,
+  ): PriceBreakdown {
+    // 1. Calculate total price (room rate * nights * number of rooms)
+    // This is the final amount customer pays
+    const totalPrice = basePrice * numberOfNights * numberOfRooms;
+
+    // 2. Calculate city tax (1% of total) - for admin breakdown
+    const cityTax = totalPrice * 0.01;
+
+    // 3. Calculate VAT (7% of total) - for admin breakdown
+    const vat = totalPrice * 0.07;
+
+    // 4. Calculate net amount (what hotel receives after taxes)
+    const netAmount = totalPrice - cityTax - vat;
+
+    return {
+      totalPrice,
+      numberOfNights,
+      numberOfRooms,
+      cityTax,
+      vat,
+      netAmount,
+      discountAmount: 0,
+    };
+  }
+
+  async createBookingFromRequest(
+    dto: CreateBookingRequestDto,
+  ): Promise<BookingResponseDto> {
+    // 1. Find or create guest
+    const guest = await this.findOrCreateGuest({
+      fullName: dto.fullName,
+      email: dto.email,
+      phone: dto.phone,
+      whatsapp: dto.whatsapp,
+    });
+
+    // 2. Get room type and validate it exists
+    const roomType = await this.getRoomTypeById(dto.roomType);
+
+    // 3. Calculate number of nights using dayjs
+    const numberOfNights = dayjs(dto.checkOut).diff(dayjs(dto.checkIn), 'day');
+
+    // 4. Validate number of nights
+    if (numberOfNights <= 0) {
+      throw new BadRequestException(
+        'Check-out date must be after check-in date',
+      );
+    }
+
+    // 5. Calculate price breakdown
+    const priceBreakdown = this.calculatePriceBreakdown(
+      roomType.basePrice,
+      numberOfNights,
+      dto.numberOfRooms,
+    );
+
+    // 6. Generate booking number
+    const bookingNumber = await this.generateBookingNumber();
+
+    // 7. Create booking in transaction
+    const booking = await this.prisma.$transaction(async (tx) => {
+      // Create booking
+      const newBooking = await tx.booking.create({
+        data: {
+          bookingNumber,
+          guestId: guest.id,
+          checkInDate: new Date(dto.checkIn),
+          checkOutDate: new Date(dto.checkOut),
+          numberOfGuests: dto.guests,
+          numberOfChildren: 0,
+          specialRequests: dto.note,
+          totalAmount: priceBreakdown.totalPrice,
+          taxAmount: priceBreakdown.cityTax,
+          serviceCharges: priceBreakdown.vat,
+          discountAmount: 0,
+          finalAmount: priceBreakdown.totalPrice,
+          status: BookingStatus.PENDING,
+          notes: dto.note,
+        },
+      });
+
+      // Note: Room assignment will be handled by admin later
+      // No RoomBooking records created at this stage
+
+      // Note: Payment record creation will be handled separately
+      // For now, we just create the booking request
+
+      return newBooking;
+    });
+
+    // 8. Return formatted response
+    return this.formatBookingResponse(
+      booking,
+      roomType,
+      priceBreakdown,
+      guest,
+      dto.numberOfRooms,
+      numberOfNights,
+    );
+  }
+
+  private formatBookingResponse(
+    booking: Booking,
+    roomType: RoomType,
+    priceBreakdown: PriceBreakdown,
+    guest: Guest,
+    numberOfRooms: number,
+    numberOfNights: number,
+  ): BookingResponseDto {
+    return {
+      id: booking.id,
+      bookingNumber: booking.bookingNumber,
+      guest: {
+        id: guest.id,
+        fullName: `${guest.firstName} ${guest.lastName}`,
+        email: guest.email,
+        phone: guest.phone || '',
+        whatsapp: guest.whatsapp ? String(guest.whatsapp) : undefined,
+      },
+      checkInDate: booking.checkInDate,
+      checkOutDate: booking.checkOutDate,
+      numberOfNights,
+      roomType: {
+        id: roomType.id,
+        name: (roomType.name as string) || 'Unknown',
+        ratePerNight: roomType.basePrice,
+      },
+      numberOfRooms,
+      numberOfGuests: booking.numberOfGuests,
+      priceBreakdown: {
+        totalPrice: priceBreakdown.totalPrice,
+        cityTax: priceBreakdown.cityTax,
+        vat: priceBreakdown.vat,
+        netAmount: priceBreakdown.netAmount,
+        discountAmount: priceBreakdown.discountAmount,
+      },
+      paymentMethod:
+        booking.status === BookingStatus.PENDING ? 'PENDING' : 'MOBILE_PAYMENT',
+      paymentStatus: 'PENDING',
+      status: booking.status,
+      note: booking.notes || undefined,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt,
+    };
   }
 }

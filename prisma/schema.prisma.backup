@@ -110,7 +110,7 @@ enum AuditAction {
 
 // Admin Users - System administrators and staff
 model Admin {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   email       String   @unique
   username    String   @unique
   password    String   // Hashed password (use bcrypt)
@@ -132,7 +132,7 @@ model Admin {
 
 // Hotel Guests - Customer information and preferences
 model Guest {
-  id          String      @id @default(cuid())
+  id          String      @id @default(uuid())
   email       String      @unique
   phone       String?
   firstName   String
@@ -172,7 +172,7 @@ model Guest {
 
 // Hotel Rooms - Core inventory with multi-language support
 model Room {
-  id              String     @id @default(cuid())
+  id              String     @id @default(uuid())
   roomNumber      String     @unique // "101", "A-205", etc.
   roomType        RoomType
   status          RoomStatus @default(AVAILABLE)
@@ -222,7 +222,7 @@ model Room {
 
 // Room Images - Media management for rooms
 model RoomImage {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   roomId    String
   url       String   // Image URL or file path
   alt       String?  // Alt text for accessibility
@@ -243,7 +243,7 @@ model RoomImage {
 
 // Hotel Bookings - Core reservation system
 model Booking {
-  id              String        @id @default(cuid())
+  id              String        @id @default(uuid())
   bookingNumber   String        @unique // "BK-2024-001234"
   guestId         String
   roomId          String
@@ -302,7 +302,7 @@ model Booking {
 
 // Payment Processing - Transaction management
 model Payment {
-  id              String        @id @default(cuid())
+  id              String        @id @default(uuid())
   bookingId       String
   amount          Float
   currency        String        @default("THB") // Thai Baht
@@ -331,7 +331,7 @@ model Payment {
 
 // Refund Management - Handle payment reversals
 model Refund {
-  id          String       @id @default(cuid())
+  id          String       @id @default(uuid())
   paymentId   String
   amount      Float        // Refund amount (can be partial)
   reason      String       // Reason for refund
@@ -355,7 +355,7 @@ model Refund {
 
 // Hotel Services - Additional services offered to guests
 model Service {
-  id          String          @id @default(cuid())
+  id          String          @id @default(uuid())
   code        String          @unique
   name        Json            // Multi-language names
   description Json?           // Multi-language descriptions
@@ -384,7 +384,7 @@ model Service {
 }
 
 model BookingService {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   bookingId String
   serviceId String
   quantity  Int      @default(1)
@@ -405,7 +405,7 @@ model BookingService {
 
 // Guest Reviews - Feedback and ratings system
 model Review {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   bookingId   String
   guestId     String
   rating      Int      // 1-5 star rating
@@ -429,7 +429,7 @@ model Review {
 
 // Loyalty Program - Guest rewards and tier management
 model LoyaltyProgram {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   guestId     String   @unique
   points      Int      @default(0)
   tier        String   @default("BRONZE") // BRONZE, SILVER, GOLD, PLATINUM
@@ -448,7 +448,7 @@ model LoyaltyProgram {
 
 // Room Maintenance Tracking - Service and repair logs
 model MaintenanceLog {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   roomId      String
   type        String   // "Cleaning", "Repair", "Inspection", "Renovation"
   description String   // Detailed description of work performed
@@ -475,7 +475,7 @@ model MaintenanceLog {
 
 // Audit Trail - Track all system changes for compliance
 model AuditLog {
-  id        String      @id @default(cuid())
+  id        String      @id @default(uuid())
   adminId   String
   action    AuditAction // CREATE, UPDATE, DELETE, LOGIN, LOGOUT
   entity    String      // Table/Model name (e.g., "Booking", "Guest")
@@ -502,7 +502,7 @@ model AuditLog {
 
 // Daily Revenue Analytics - Key performance metrics
 model DailyRevenue {
-  id             String   @id @default(cuid())
+  id             String   @id @default(uuid())
   date           DateTime @unique @db.Date // Date for the revenue data
   roomRevenue    Float    @default(0)      // Revenue from room bookings
   serviceRevenue Float    @default(0)      // Revenue from additional services
@@ -523,7 +523,7 @@ model DailyRevenue {
 
 // System Settings - Configurable application parameters
 model Settings {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   key       String   @unique // Setting identifier (e.g., "hotel_name", "tax_rate")
   value     Json     // Setting value (can be string, number, object, array)
   category  String?  // Setting category for organization ("general", "payment", "email")

@@ -1,5 +1,5 @@
 model Review {
-  id         String   @id @default(cuid())
+  id         String   @id @default(uuid())
   bookingId  String
   guestId    String
   rating     Int
@@ -20,7 +20,7 @@ model Review {
 }
 
 model LoyaltyProgram {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   guestId     String   @unique
   points      Int      @default(0)
   tier        String   @default("BRONZE")

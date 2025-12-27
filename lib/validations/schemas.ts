@@ -87,7 +87,7 @@ export const PaginationSchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).default('asc'),
 });
 
-export const CuidSchema = z.string().cuid();
+export const CuidSchema = z.string().uuid();
 export const EmailSchema = z.string().email();
 export const PhoneSchema = z
   .string()

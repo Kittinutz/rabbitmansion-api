@@ -275,6 +275,7 @@ Table guests {
   id String [pk]
   email String [unique, not null]
   phone String
+  whatsapp String
   firstName String [not null]
   lastName String [not null]
   dateOfBirth DateTime
