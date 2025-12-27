@@ -32,6 +32,9 @@ import type {
   UpdateRoomTypeDto,
   RoomTypeFilter,
 } from './room-type.service';
+import type { CheckAvailabilityDto } from './dto/check-availability.dto';
+import type { AvailabilityResponse } from './types/availability-response.type';
+import type { IndividualRoomTypeAvailability } from './types/individual-availability-response.type';
 
 @ApiTags('room-types')
 @Controller('room-types')
@@ -119,6 +122,236 @@ export class RoomTypeController {
   })
   async createRoomType(@Body() createRoomTypeDto: CreateRoomTypeDto) {
     return this.roomTypeService.createRoomType(createRoomTypeDto);
+  }
+
+  @Get('availability')
+  @ApiOperation({
+    summary: 'Check room type availability',
+    description:
+      'Returns available room types with slot counts for specified check-in and check-out dates',
+  })
+  @ApiQuery({
+    name: 'checkInDate',
+    type: String,
+    required: true,
+    description:
+      'Check-in date in ISO 8601 format (e.g., 2025-12-20T14:00:00Z or 2025-12-20)',
+    example: '2025-12-20T14:00:00Z',
+  })
+  @ApiQuery({
+    name: 'checkOutDate',
+    type: String,
+    required: true,
+    description:
+      'Check-out date in ISO 8601 format (e.g., 2025-12-25T12:00:00Z or 2025-12-25)',
+    example: '2025-12-25T12:00:00Z',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Room type availability retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        checkInDate: {
+          type: 'string',
+          example: '2025-12-20T14:00:00.000Z',
+        },
+        checkOutDate: {
+          type: 'string',
+          example: '2025-12-25T12:00:00.000Z',
+        },
+        totalAvailableRooms: {
+          type: 'number',
+          example: 35,
+        },
+        availableRoomTypes: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              roomType: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  code: { type: 'string' },
+                  name: { type: 'string' },
+                  description: { type: 'string' },
+                  basePrice: { type: 'number' },
+                  maxOccupancy: { type: 'number' },
+                  bedType: { type: 'string' },
+                  roomSize: { type: 'number' },
+                  amenities: { type: 'array', items: { type: 'string' } },
+                  thumbnailUrl: { type: 'string', nullable: true },
+                },
+              },
+              totalRooms: { type: 'number', example: 10 },
+              availableRooms: { type: 'number', example: 7 },
+              occupiedRooms: { type: 'number', example: 3 },
+              availabilityPercentage: { type: 'number', example: 70 },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid date range or dates in the past',
+  })
+  async checkAvailability(
+    @Query('checkInDate') checkInDate: string,
+    @Query('checkOutDate') checkOutDate: string,
+  ): Promise<AvailabilityResponse> {
+    // Parse dates
+    const checkIn = new Date(checkInDate);
+    const checkOut = new Date(checkOutDate);
+
+    // Validate dates
+    if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) {
+      throw new BadRequestException(
+        'Invalid date format. Use ISO 8601 format.',
+      );
+    }
+
+    const result = await this.roomTypeService.getAvailableRoomTypes(
+      checkIn,
+      checkOut,
+    );
+    return result;
+  }
+
+  @Get('availability/:roomTypeId')
+  @ApiOperation({
+    summary: 'Check individual room type availability',
+    description:
+      'Returns detailed availability information for a specific room type during the specified dates',
+  })
+  @ApiParam({
+    name: 'roomTypeId',
+    type: String,
+    required: true,
+    description: 'UUID of the room type',
+    example: 'cm4u1234abcd5678efgh9012',
+  })
+  @ApiQuery({
+    name: 'checkInDate',
+    type: String,
+    required: true,
+    description:
+      'Check-in date in ISO 8601 format (e.g., 2025-12-20T14:00:00Z or 2025-12-20)',
+    example: '2025-12-20T14:00:00Z',
+  })
+  @ApiQuery({
+    name: 'checkOutDate',
+    type: String,
+    required: true,
+    description:
+      'Check-out date in ISO 8601 format (e.g., 2025-12-25T12:00:00Z or 2025-12-25)',
+    example: '2025-12-25T12:00:00Z',
+  })
+  @ApiQuery({
+    name: 'includeRoomList',
+    type: Boolean,
+    required: false,
+    description: 'Include list of specific available rooms (default: true)',
+    example: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Room type availability retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        roomTypeId: { type: 'string' },
+        checkInDate: { type: 'string', example: '2025-12-20T14:00:00.000Z' },
+        checkOutDate: { type: 'string', example: '2025-12-25T12:00:00.000Z' },
+        roomType: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            code: { type: 'string' },
+            name: { type: 'object' },
+            description: { type: 'object' },
+            basePrice: { type: 'number' },
+            capacity: { type: 'number' },
+            bedType: { type: 'string' },
+            amenities: { type: 'array', items: { type: 'string' } },
+            hasPoolView: { type: 'boolean' },
+            thumbnailUrl: { type: 'string', nullable: true },
+            roomImages: { type: 'array' },
+          },
+        },
+        availability: {
+          type: 'object',
+          properties: {
+            totalRooms: { type: 'number', example: 10 },
+            availableRooms: { type: 'number', example: 7 },
+            occupiedRooms: { type: 'number', example: 3 },
+            availabilityPercentage: { type: 'number', example: 70 },
+            isAvailable: { type: 'boolean', example: true },
+          },
+        },
+        availableRoomList: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              roomId: { type: 'string' },
+              roomNumber: { type: 'string' },
+              floor: { type: 'number' },
+              size: { type: 'number', nullable: true },
+              accessible: { type: 'boolean' },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Room type not found',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid date range or dates in the past',
+  })
+  async checkIndividualRoomTypeAvailability(
+    @Param('roomTypeId') roomTypeId: string,
+    @Query('checkInDate') checkInDate: string,
+    @Query('checkOutDate') checkOutDate: string,
+    @Query('includeRoomList') includeRoomList?: string,
+  ): Promise<IndividualRoomTypeAvailability> {
+    // Parse dates with UTC handling
+    let checkIn: Date;
+    let checkOut: Date;
+
+    try {
+      const checkInStr = checkInDate.includes('T')
+        ? checkInDate
+        : `${checkInDate}T00:00:00Z`;
+      const checkOutStr = checkOutDate.includes('T')
+        ? checkOutDate
+        : `${checkOutDate}T00:00:00Z`;
+
+      checkIn = new Date(checkInStr);
+      checkOut = new Date(checkOutStr);
+
+      if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) {
+        throw new BadRequestException('Invalid date format');
+      }
+    } catch (error) {
+      console.error('Date parsing error:', error);
+      throw new BadRequestException(
+        'Invalid date format. Use ISO 8601: YYYY-MM-DD or YYYY-MM-DDTHH:mm:ssZ',
+      );
+    }
+
+    // Parse includeRoomList (default to true)
+    const shouldIncludeRoomList = includeRoomList === 'false' ? false : true;
+
+    return this.roomTypeService.getIndividualRoomTypeAvailability(
+      roomTypeId,
+      checkIn,
+      checkOut,
+      shouldIncludeRoomList,
+    );
   }
 
   @Get()

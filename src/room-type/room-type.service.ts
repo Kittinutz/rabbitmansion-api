@@ -1,7 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prima/prisma.service';
 import { $Enums, Prisma, RoomType } from '../../prisma/generated/prisma';
 import { MinioService } from 'src/minio/minio.service';
+import {
+  AvailabilityResponse,
+  RoomTypeAvailability,
+} from './types/availability-response.type';
+import { IndividualRoomTypeAvailability } from './types/individual-availability-response.type';
+import dayjs from 'dayjs';
 
 export interface CreateRoomTypeDto {
   code: string;
@@ -447,5 +457,261 @@ export class RoomTypeService {
     }
 
     return image;
+  }
+
+  /**
+   * Get available room types with availability counts for a given date range
+   * @param checkInDate - Check-in date
+   * @param checkOutDate - Check-out date
+   * @returns Room types with availability information
+   */
+  async getAvailableRoomTypes(
+    checkInDate: Date,
+    checkOutDate: Date,
+  ): Promise<AvailabilityResponse> {
+    // Validate dates
+    if (checkOutDate <= checkInDate) {
+      throw new BadRequestException(
+        'Check-out date must be after check-in date',
+      );
+    }
+
+    const now = dayjs().startOf('day').toDate();
+    if (checkInDate < now) {
+      throw new BadRequestException('Check-in date cannot be in the past');
+    }
+
+    // Step 1: Find all occupied room IDs during the requested period
+    // A room is occupied if there's a booking where dates overlap
+    // Overlap condition: (booking.checkInDate < queryCheckOutDate) AND (booking.checkOutDate > queryCheckInDate)
+    const occupiedRooms = await this.prisma.roomBooking.findMany({
+      where: {
+        AND: [
+          { checkInDate: { lt: checkOutDate } },
+          { checkOutDate: { gt: checkInDate } },
+          {
+            status: {
+              in: ['ASSIGNED', 'CHECKED_IN'], // Only count active bookings
+            },
+          },
+        ],
+      },
+      select: {
+        roomId: true,
+      },
+    });
+
+    const occupiedRoomIds = occupiedRooms.map((rb) => rb.roomId);
+
+    // Step 2: Query all active room types with their rooms
+    const roomTypes = await this.prisma.roomType.findMany({
+      where: {
+        isActive: true,
+        rooms: {
+          some: {
+            status: 'AVAILABLE', // Only consider available rooms
+          },
+        },
+      },
+      include: {
+        roomImages: {
+          where: { isPrimary: true },
+          take: 1,
+        },
+        rooms: {
+          where: {
+            status: 'AVAILABLE',
+          },
+          select: {
+            id: true,
+            roomTypeId: true,
+          },
+        },
+      },
+      orderBy: {
+        basePrice: 'asc', // Sort by price
+      },
+    });
+
+    // Step 3: Calculate availability for each room type
+    const availableRoomTypes: RoomTypeAvailability[] = roomTypes
+      .map((roomType) => {
+        const totalRooms = roomType.rooms.length;
+        const occupiedCount = roomType.rooms.filter((room) =>
+          occupiedRoomIds.includes(room.id),
+        ).length;
+        const availableRooms = totalRooms - occupiedCount;
+
+        return {
+          roomType: {
+            id: roomType.id,
+            code: roomType.code,
+            name: roomType.name,
+            description: roomType.description,
+            basePrice: roomType.basePrice,
+            maxOccupancy: roomType.capacity,
+            bedType: roomType.bedType,
+            amenities: roomType.amenities,
+            roomImages: roomType.roomImages,
+            thumbnailUrl: roomType.roomImages[0]?.url || null,
+          },
+          totalRooms,
+          availableRooms,
+          occupiedRooms: occupiedCount,
+          availabilityPercentage:
+            totalRooms > 0
+              ? Math.round((availableRooms / totalRooms) * 100)
+              : 0,
+        };
+      })
+      .filter((rt) => rt.availableRooms > 0); // Only return room types with availability
+
+    // Calculate total available rooms
+    const totalAvailableRooms = availableRoomTypes.reduce(
+      (sum, rt) => sum + rt.availableRooms,
+      0,
+    );
+
+    return {
+      checkInDate: checkInDate.toISOString(),
+      checkOutDate: checkOutDate.toISOString(),
+      totalAvailableRooms,
+      availableRoomTypes,
+    };
+  }
+
+  /**
+   * Get availability for a specific room type by ID
+   * @param roomTypeId - Room type UUID
+   * @param checkInDate - Check-in date
+   * @param checkOutDate - Check-out date
+   * @param includeRoomList - Whether to include list of available rooms (default: false)
+   * @returns Detailed room type with availability information
+   */
+  async getIndividualRoomTypeAvailability(
+    roomTypeId: string,
+    checkInDate: Date,
+    checkOutDate: Date,
+    includeRoomList: boolean = false,
+  ): Promise<IndividualRoomTypeAvailability> {
+    // Step 1: Validate dates
+    if (checkOutDate <= checkInDate) {
+      throw new BadRequestException(
+        'Check-out date must be after check-in date',
+      );
+    }
+
+    const startOfToDate = dayjs().startOf('day').unix();
+    const checkInDateVal = dayjs(checkInDate).unix();
+    console.log(
+      { checkInDateVal, startOfToDate, checkOutDate },
+      startOfToDate < checkInDateVal,
+    );
+
+    if (checkInDateVal < startOfToDate) {
+      throw new BadRequestException('Check-in date cannot be in the past');
+    }
+
+    // Step 2: Fetch room type with images
+    const roomType = await this.prisma.roomType.findUnique({
+      where: {
+        id: roomTypeId,
+        isActive: true, // Only active room types
+      },
+      include: {
+        roomImages: {
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+    });
+
+    if (!roomType) {
+      throw new NotFoundException(
+        `Room type with ID '${roomTypeId}' not found`,
+      );
+    }
+
+    // Step 3: Get all rooms for this room type
+    const roomsForType = await this.prisma.room.findMany({
+      where: {
+        roomTypeId: roomTypeId,
+        status: 'AVAILABLE',
+        isActive: true,
+      },
+      select: {
+        id: true,
+        roomNumber: true,
+        floor: true,
+        size: true,
+        accessible: true,
+      },
+    });
+
+    const roomIds = roomsForType.map((r) => r.id);
+
+    // Step 4: Find occupied rooms during the period
+    const occupiedBookings = await this.prisma.roomBooking.findMany({
+      where: {
+        roomId: { in: roomIds },
+        AND: [
+          { checkInDate: { lt: checkOutDate } },
+          { checkOutDate: { gt: checkInDate } },
+          { status: { in: ['ASSIGNED', 'CHECKED_IN'] } },
+        ],
+      },
+      select: {
+        roomId: true,
+      },
+    });
+
+    const occupiedRoomIds = new Set(occupiedBookings.map((rb) => rb.roomId));
+
+    // Step 5: Calculate availability
+    const totalRooms = roomsForType.length;
+    const occupiedRooms = occupiedRoomIds.size;
+    const availableRooms = totalRooms - occupiedRooms;
+    const availabilityPercentage =
+      totalRooms > 0 ? Math.round((availableRooms / totalRooms) * 100) : 0;
+
+    // Step 6: Get list of available rooms (if requested)
+    const availableRoomList = includeRoomList
+      ? roomsForType
+          .filter((room) => !occupiedRoomIds.has(room.id))
+          .map((room) => ({
+            roomId: room.id,
+            roomNumber: room.roomNumber,
+            floor: room.floor,
+            size: room.size ?? undefined,
+            accessible: room.accessible,
+          }))
+      : undefined;
+
+    // Step 7: Return response
+    return {
+      roomTypeId,
+      checkInDate: checkInDate.toISOString(),
+      checkOutDate: checkOutDate.toISOString(),
+      roomType: {
+        id: roomType.id,
+        code: roomType.code,
+        name: roomType.name,
+        description: roomType.description,
+        basePrice: roomType.basePrice,
+        capacity: roomType.capacity,
+        bedType: roomType.bedType,
+        amenities: roomType.amenities,
+        hasPoolView: roomType.hasPoolView,
+        thumbnailUrl: roomType.thumbnailUrl,
+        roomImages: roomType.roomImages,
+      },
+      availability: {
+        totalRooms,
+        availableRooms,
+        occupiedRooms,
+        availabilityPercentage,
+        isAvailable: availableRooms > 0,
+      },
+      availableRoomList,
+    };
   }
 }
