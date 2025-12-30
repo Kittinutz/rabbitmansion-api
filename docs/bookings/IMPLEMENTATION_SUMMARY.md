@@ -11,17 +11,22 @@ All features from the planning document have been successfully implemented.
 ## Changes Made
 
 ### 1. Database Schema ✅
+
 **File:** `prisma/schema/users.prisma`
+
 - Added `whatsapp` field to Guest model
 - Migration created and applied: `20251227181722_add_whatsapp_to_guest`
 
 ### 2. Dependencies ✅
+
 - Installed `dayjs` package for date calculations
 
 ### 3. DTOs Created ✅
+
 **Location:** `src/booking/dto/`
 
 #### `create-booking-request.dto.ts`
+
 - Guest information: fullName, email, phone, whatsapp
 - Booking details: checkIn, checkOut, roomType, numberOfRooms, guests, note
 - Payment: paymentMethod (QR_CODE | VISA)
@@ -29,6 +34,7 @@ All features from the planning document have been successfully implemented.
 - Swagger documentation annotations
 
 #### `booking-response.dto.ts`
+
 - Complete response structure with guest info
 - Room type information (not assigned rooms)
 - Price breakdown with all calculated fields
@@ -36,24 +42,29 @@ All features from the planning document have been successfully implemented.
 - Swagger documentation
 
 #### `price-breakdown.interface.ts`
+
 - Interface for price calculations
 - Fields: totalPrice, cityTax, vat, netAmount, discountAmount
 
 ### 4. Service Methods ✅
+
 **File:** `src/booking/booking.service.ts`
 
 #### `findOrCreateGuest()`
+
 - Checks if guest exists by email
 - Creates new guest if not exists
 - Updates phone/whatsapp if guest exists
 - Splits fullName into firstName/lastName
 
 #### `getRoomTypeById()`
+
 - Validates room type exists
 - Throws NotFoundException if not found
 - Returns RoomType entity
 
 #### `calculatePriceBreakdown()`
+
 - Input: basePrice, numberOfNights, numberOfRooms
 - Calculates:
   - Total price = basePrice × nights × rooms
@@ -62,6 +73,7 @@ All features from the planning document have been successfully implemented.
   - Net amount = total - cityTax - vat
 
 #### `createBookingFromRequest()`
+
 - Main booking creation flow
 - Finds or creates guest
 - Validates room type
@@ -73,20 +85,24 @@ All features from the planning document have been successfully implemented.
 - Returns formatted response
 
 #### `formatBookingResponse()`
+
 - Private helper method
 - Formats booking data into BookingResponseDto
 - Includes all calculated fields
 
 ### 5. Controller Endpoint ✅
+
 **File:** `src/booking/booking.controller.ts`
 
 #### New Endpoint: `POST /bookings`
+
 - Accepts CreateBookingRequestDto
 - Returns BookingResponseDto
 - Full Swagger documentation
 - Validation pipe enabled
 
 #### Existing Endpoint Renamed: `POST /bookings/admin`
+
 - Keeps original booking creation for admin use
 - Requires guestId and roomIds
 
@@ -95,6 +111,7 @@ All features from the planning document have been successfully implemented.
 ## API Usage
 
 ### Request Example
+
 ```bash
 POST http://localhost:3000/bookings
 Content-Type: application/json
@@ -115,6 +132,7 @@ Content-Type: application/json
 ```
 
 ### Response Example
+
 ```json
 {
   "id": "cm987654321",
@@ -157,12 +175,14 @@ Content-Type: application/json
 ## Price Calculation
 
 **Formula:**
+
 - Total Price = basePrice × numberOfNights × numberOfRooms
 - City Tax = totalPrice × 0.01 (1%)
 - VAT = totalPrice × 0.07 (7%)
 - Net Amount = totalPrice - cityTax - vat (92% of total)
 
 **Example:**
+
 - 2 rooms × 2000 THB/night × 3 nights = 12,000 THB (customer pays)
 - City Tax: 120 THB (1%)
 - VAT: 840 THB (7%)
@@ -192,6 +212,7 @@ Content-Type: application/json
 ## Testing
 
 Build completed successfully with no errors:
+
 ```bash
 npm run build
 ✓ Build successful
@@ -217,6 +238,7 @@ As outlined in the planning document:
 ## Files Modified/Created
 
 ### Created
+
 - `src/booking/dto/create-booking-request.dto.ts`
 - `src/booking/dto/booking-response.dto.ts`
 - `src/booking/dto/price-breakdown.interface.ts`
@@ -225,6 +247,7 @@ As outlined in the planning document:
 - `docs/bookings/IMPLEMENTATION_SUMMARY.md`
 
 ### Modified
+
 - `prisma/schema/users.prisma` (added whatsapp field)
 - `src/booking/booking.service.ts` (added new methods)
 - `src/booking/booking.controller.ts` (added new endpoint)

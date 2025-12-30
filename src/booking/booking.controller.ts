@@ -9,6 +9,7 @@ import {
   Query,
   ParseUUIDPipe,
   ValidationPipe,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,6 +21,7 @@ import {
   ApiNotFoundResponse,
   ApiCreatedResponse,
   ApiOkResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { BookingService } from './booking.service';
 import type {
@@ -27,8 +29,16 @@ import type {
   UpdateBookingDto,
   AssignRoomToBookingDto,
 } from './booking.service';
-import { CreateBookingRequestDto, BookingResponseDto } from './dto';
+import {
+  CreateBookingRequestDto,
+  BookingResponseDto,
+  AssignRoomsDto,
+  CheckInDto,
+  CheckOutDto,
+} from './dto';
+import type { BookingListQuery } from './dto';
 import { BookingStatus } from '../../prisma/generated/prisma';
+import { AdminGuard } from '../auth/guards/admin.guard';
 
 @ApiTags('bookings')
 @Controller('bookings')
@@ -53,6 +63,202 @@ export class BookingController {
     @Body(ValidationPipe) dto: CreateBookingRequestDto,
   ): Promise<BookingResponseDto> {
     return this.bookingService.createBookingFromRequest(dto);
+  }
+
+  @Get()
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'List all bookings (Admin)',
+    description:
+      'Retrieves all bookings with pagination and optional filters. Admin access required.',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 10, max: 100)',
+    example: 10,
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: BookingStatus,
+    description: 'Filter by booking status',
+  })
+  @ApiQuery({
+    name: 'guestEmail',
+    required: false,
+    type: String,
+    description: 'Filter by guest email',
+  })
+  @ApiQuery({
+    name: 'guestPhone',
+    required: false,
+    type: String,
+    description: 'Filter by guest phone',
+  })
+  @ApiQuery({
+    name: 'bookingNumber',
+    required: false,
+    type: String,
+    description: 'Search by booking number',
+  })
+  @ApiQuery({
+    name: 'checkInFrom',
+    required: false,
+    type: String,
+    description: 'Filter bookings from this check-in date',
+  })
+  @ApiQuery({
+    name: 'checkInTo',
+    required: false,
+    type: String,
+    description: 'Filter bookings to this check-in date',
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    description: 'Sort by field (createdAt, checkInDate, totalAmount)',
+    example: 'createdAt',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    description: 'Sort order',
+    example: 'desc',
+  })
+  @ApiOkResponse({
+    description: 'Bookings retrieved successfully',
+  })
+  async findAllBookings(@Query() query: BookingListQuery) {
+    return this.bookingService.findAllBookings(query);
+  }
+
+  @Get(':id')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get booking details (Admin)',
+    description:
+      'Retrieves detailed information about a specific booking. Admin access required.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: String,
+    description: 'Booking ID',
+    example: 'cm123456789',
+  })
+  @ApiOkResponse({
+    description: 'Booking details retrieved successfully',
+  })
+  @ApiNotFoundResponse({
+    description: 'Booking not found',
+  })
+  async getBookingById(@Param('id') id: string) {
+    return this.bookingService.getBookingDetail(id);
+  }
+
+  @Put(':bookingId/assign-rooms')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Assign rooms to booking (Admin)',
+    description:
+      'Assigns specific rooms to a pending booking. Validates room availability and updates booking status to CONFIRMED.',
+  })
+  @ApiParam({
+    name: 'bookingId',
+    type: String,
+    description: 'Booking ID',
+    example: 'cm123456789',
+  })
+  @ApiBody({ type: AssignRoomsDto })
+  @ApiOkResponse({
+    description: 'Rooms assigned successfully',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request or rooms not available',
+  })
+  @ApiNotFoundResponse({
+    description: 'Booking not found',
+  })
+  async assignRooms(
+    @Param('bookingId') bookingId: string,
+    @Body(ValidationPipe) dto: AssignRoomsDto,
+  ) {
+    return this.bookingService.assignRooms(bookingId, dto);
+  }
+
+  @Put(':bookingId/check-in')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Check in booking (Admin)',
+    description:
+      'Checks in a confirmed booking. Updates booking and room statuses to CHECKED_IN/OCCUPIED.',
+  })
+  @ApiParam({
+    name: 'bookingId',
+    type: String,
+    description: 'Booking ID',
+    example: 'cm123456789',
+  })
+  @ApiBody({ type: CheckInDto })
+  @ApiOkResponse({
+    description: 'Check-in successful',
+  })
+  @ApiBadRequestResponse({
+    description: 'Booking must be CONFIRMED',
+  })
+  @ApiNotFoundResponse({
+    description: 'Booking not found',
+  })
+  async checkIn(
+    @Param('bookingId') bookingId: string,
+    @Body(ValidationPipe) dto: CheckInDto,
+  ) {
+    return this.bookingService.checkIn(bookingId, dto);
+  }
+
+  @Put(':bookingId/check-out')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Check out booking (Admin)',
+    description:
+      'Checks out a booking. Updates booking status to CHECKED_OUT, sets rooms to CLEANING, and updates guest statistics.',
+  })
+  @ApiParam({
+    name: 'bookingId',
+    type: String,
+    description: 'Booking ID',
+    example: 'cm123456789',
+  })
+  @ApiBody({ type: CheckOutDto })
+  @ApiOkResponse({
+    description: 'Check-out successful',
+  })
+  @ApiBadRequestResponse({
+    description: 'Booking must be CHECKED_IN',
+  })
+  @ApiNotFoundResponse({
+    description: 'Booking not found',
+  })
+  async checkOut(
+    @Param('bookingId') bookingId: string,
+    @Body(ValidationPipe) dto: CheckOutDto,
+  ) {
+    return this.bookingService.checkOut(bookingId, dto);
   }
 
   @Post('admin')
@@ -167,179 +373,6 @@ export class BookingController {
     };
   }
 
-  @Get()
-  @ApiOperation({
-    summary: 'Get all bookings',
-    description:
-      'Retrieves all bookings with optional filtering by status, guest, dates, and pagination support.',
-  })
-  @ApiQuery({
-    name: 'status',
-    required: false,
-    enum: [
-      'PENDING',
-      'CONFIRMED',
-      'CHECKED_IN',
-      'CHECKED_OUT',
-      'CANCELLED',
-      'NO_SHOW',
-    ],
-    description: 'Filter by booking status',
-  })
-  @ApiQuery({
-    name: 'guestId',
-    required: false,
-    type: 'string',
-    description: 'Filter by guest ID',
-  })
-  @ApiQuery({
-    name: 'checkInDate',
-    required: false,
-    type: 'string',
-    format: 'date-time',
-    description: 'Filter by check-in date (ISO 8601)',
-    example: '2024-12-20T00:00:00.000Z',
-  })
-  @ApiQuery({
-    name: 'checkOutDate',
-    required: false,
-    type: 'string',
-    format: 'date-time',
-    description: 'Filter by check-out date (ISO 8601)',
-    example: '2024-12-25T00:00:00.000Z',
-  })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: 'integer',
-    description: 'Page number for pagination',
-    example: 1,
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: 'integer',
-    description: 'Number of items per page',
-    example: 10,
-  })
-  @ApiOkResponse({
-    description: 'Bookings retrieved successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        success: { type: 'boolean', example: true },
-        data: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'string' },
-              bookingNumber: { type: 'string' },
-              guestId: { type: 'string' },
-              status: { type: 'string' },
-              checkInDate: { type: 'string', format: 'date-time' },
-              checkOutDate: { type: 'string', format: 'date-time' },
-            },
-          },
-        },
-        pagination: {
-          type: 'object',
-          properties: {
-            total: { type: 'integer', example: 50 },
-            page: { type: 'integer', example: 1 },
-            limit: { type: 'integer', example: 10 },
-            totalPages: { type: 'integer', example: 5 },
-          },
-        },
-        message: { type: 'string', example: 'Bookings retrieved successfully' },
-      },
-    },
-  })
-  async findAll(
-    @Query('status') status?: BookingStatus,
-    @Query('guestId') guestId?: string,
-    @Query('checkInDate') checkInDate?: string,
-    @Query('checkOutDate') checkOutDate?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
-    const filters = {
-      ...(status && { status }),
-      ...(guestId && { guestId }),
-      ...(checkInDate && { checkInDate: new Date(checkInDate) }),
-      ...(checkOutDate && { checkOutDate: new Date(checkOutDate) }),
-      ...(page && { page: parseInt(page, 10) }),
-      ...(limit && { limit: parseInt(limit, 10) }),
-    };
-
-    const result = await this.bookingService.findAll(filters);
-
-    return {
-      success: true,
-      data: result.bookings,
-      pagination: result.pagination,
-      message: 'Bookings retrieved successfully',
-    };
-  }
-
-  @Get(':id')
-  @ApiOperation({
-    summary: 'Get booking by ID',
-    description:
-      'Retrieves detailed information about a specific booking including guest details, room assignments, services, payments, and reviews.',
-  })
-  @ApiParam({
-    name: 'id',
-    type: 'string',
-    format: 'uuid',
-    description: 'Booking ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiOkResponse({
-    description: 'Booking retrieved successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        success: { type: 'boolean', example: true },
-        data: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' },
-            bookingNumber: { type: 'string' },
-            guest: { type: 'object' },
-            roomBookings: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  id: { type: 'string' },
-                  roomId: { type: 'string' },
-                  roomRate: { type: 'number' },
-                  room: { type: 'object' },
-                },
-              },
-            },
-            services: { type: 'array' },
-            payments: { type: 'array' },
-            reviews: { type: 'array' },
-          },
-        },
-        message: { type: 'string', example: 'Booking retrieved successfully' },
-      },
-    },
-  })
-  @ApiNotFoundResponse({
-    description: 'Booking not found',
-  })
-  async findOne(@Param('id', ParseUUIDPipe) id: string) {
-    const booking = await this.bookingService.findOne(id);
-    return {
-      success: true,
-      data: booking,
-      message: 'Booking retrieved successfully',
-    };
-  }
-
   @Put(':id')
   @ApiOperation({
     summary: 'Update booking',
@@ -419,93 +452,6 @@ export class BookingController {
       success: true,
       data: booking,
       message: 'Booking updated successfully',
-    };
-  }
-
-  @Post(':id/check-in')
-  @ApiOperation({
-    summary: 'Check in booking',
-    description:
-      'Marks the booking as checked-in and updates all assigned rooms to OCCUPIED status. Records actual check-in timestamp.',
-  })
-  @ApiParam({
-    name: 'id',
-    type: 'string',
-    format: 'uuid',
-    description: 'Booking ID',
-  })
-  @ApiOkResponse({
-    description: 'Check-in completed successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        success: { type: 'boolean', example: true },
-        data: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' },
-            status: { type: 'string', example: 'CHECKED_IN' },
-            actualCheckIn: { type: 'string', format: 'date-time' },
-          },
-        },
-        message: { type: 'string', example: 'Check-in completed successfully' },
-      },
-    },
-  })
-  @ApiNotFoundResponse({
-    description: 'Booking not found',
-  })
-  async checkIn(@Param('id', ParseUUIDPipe) id: string) {
-    const booking = await this.bookingService.checkIn(id);
-    return {
-      success: true,
-      data: booking,
-      message: 'Check-in completed successfully',
-    };
-  }
-
-  @Post(':id/check-out')
-  @ApiOperation({
-    summary: 'Check out booking',
-    description:
-      'Marks the booking as checked-out and updates all assigned rooms to CLEANING status. Records actual check-out timestamp.',
-  })
-  @ApiParam({
-    name: 'id',
-    type: 'string',
-    format: 'uuid',
-    description: 'Booking ID',
-  })
-  @ApiOkResponse({
-    description: 'Check-out completed successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        success: { type: 'boolean', example: true },
-        data: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' },
-            status: { type: 'string', example: 'CHECKED_OUT' },
-            actualCheckOut: { type: 'string', format: 'date-time' },
-          },
-        },
-        message: {
-          type: 'string',
-          example: 'Check-out completed successfully',
-        },
-      },
-    },
-  })
-  @ApiNotFoundResponse({
-    description: 'Booking not found',
-  })
-  async checkOut(@Param('id', ParseUUIDPipe) id: string) {
-    const booking = await this.bookingService.checkOut(id);
-    return {
-      success: true,
-      data: booking,
-      message: 'Check-out completed successfully',
     };
   }
 

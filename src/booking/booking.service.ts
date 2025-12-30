@@ -21,6 +21,12 @@ import {
   CreateBookingRequestDto,
   BookingResponseDto,
   PriceBreakdown,
+  AssignRoomsDto,
+  CheckInDto,
+  CheckOutDto,
+  BookingListQuery,
+  BookingListResponse,
+  BookingDetailResponse,
 } from './dto';
 
 export interface CreateBookingDto {
@@ -337,64 +343,6 @@ export class BookingService {
         data: { status: RoomStatus.AVAILABLE },
       });
     }
-  }
-
-  async checkIn(bookingId: string): Promise<Booking> {
-    return await this.prisma.$transaction(async (tx) => {
-      // Update booking status
-      const booking = await tx.booking.update({
-        where: { id: bookingId },
-        data: {
-          status: BookingStatus.CHECKED_IN,
-          actualCheckIn: new Date(),
-        },
-        include: { roomBookings: true },
-      });
-
-      // Update room booking status
-      await tx.roomBooking.updateMany({
-        where: { bookingId },
-        data: { status: RoomBookingStatus.CHECKED_IN },
-      });
-
-      // Update room status to occupied
-      const roomIds = booking.roomBookings.map((rb) => rb.roomId);
-      await tx.room.updateMany({
-        where: { id: { in: roomIds } },
-        data: { status: RoomStatus.OCCUPIED },
-      });
-
-      return booking;
-    });
-  }
-
-  async checkOut(bookingId: string): Promise<Booking> {
-    return await this.prisma.$transaction(async (tx) => {
-      // Update booking status
-      const booking = await tx.booking.update({
-        where: { id: bookingId },
-        data: {
-          status: BookingStatus.CHECKED_OUT,
-          actualCheckOut: new Date(),
-        },
-        include: { roomBookings: true },
-      });
-
-      // Update room booking status
-      await tx.roomBooking.updateMany({
-        where: { bookingId },
-        data: { status: RoomBookingStatus.CHECKED_OUT },
-      });
-
-      // Update room status to cleaning
-      const roomIds = booking.roomBookings.map((rb) => rb.roomId);
-      await tx.room.updateMany({
-        where: { id: { in: roomIds } },
-        data: { status: RoomStatus.CLEANING },
-      });
-
-      return booking;
-    });
   }
 
   async cancelBooking(id: string, reason?: string): Promise<Booking> {
@@ -725,5 +673,550 @@ export class BookingService {
       createdAt: booking.createdAt,
       updatedAt: booking.updatedAt,
     };
+  }
+
+  // New Booking Management Methods
+
+  async findAllBookings(query: BookingListQuery): Promise<BookingListResponse> {
+    // Check if any query parameters are provided
+    const hasQueryParams =
+      query.page ||
+      query.limit ||
+      query.status ||
+      query.guestEmail ||
+      query.guestPhone ||
+      query.bookingNumber ||
+      query.checkInFrom ||
+      query.checkInTo ||
+      query.checkOutFrom ||
+      query.checkOutTo ||
+      query.sortBy ||
+      query.sortOrder;
+
+    // If no query params, return all bookings sorted by checkInDate desc
+    if (!hasQueryParams) {
+      const bookings = await this.prisma.booking.findMany({
+        orderBy: { checkInDate: 'desc' },
+        include: {
+          guest: true,
+          roomBookings: {
+            include: {
+              room: {
+                include: { roomType: true },
+              },
+            },
+          },
+        },
+      });
+
+      const data = bookings.map((booking) => {
+        const numberOfNights = dayjs(booking.checkOutDate).diff(
+          dayjs(booking.checkInDate),
+          'day',
+        );
+
+        // Get room type from first room booking if available
+        const firstRoomBooking = booking.roomBookings[0];
+        const roomType = firstRoomBooking?.room?.roomType;
+
+        return {
+          id: booking.id,
+          bookingNumber: booking.bookingNumber,
+          guest: {
+            id: booking.guest.id,
+            fullName: `${booking.guest.firstName} ${booking.guest.lastName}`,
+            email: booking.guest.email,
+            phone: booking.guest.phone || '',
+          },
+          checkInDate: booking.checkInDate,
+          checkOutDate: booking.checkOutDate,
+          numberOfNights,
+          numberOfGuests: booking.numberOfGuests,
+          roomType: roomType
+            ? {
+                id: roomType.id,
+                name: (roomType.name as string) || 'Unknown',
+              }
+            : null,
+          numberOfRooms: Math.ceil(
+            booking.totalAmount / (roomType?.basePrice || 1) / numberOfNights ||
+              1,
+          ),
+          assignedRooms: booking.roomBookings.length,
+          totalAmount: booking.totalAmount,
+          status: booking.status,
+          createdAt: booking.createdAt,
+        };
+      });
+
+      return {
+        data,
+        pagination: {
+          page: 1,
+          limit: data.length,
+          totalItems: data.length,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      };
+    }
+
+    // Otherwise, use pagination
+    const page = query.page || 1;
+    const limit = Math.min(query.limit || 10, 100);
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    // Apply filters
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.guestEmail) {
+      where.guest = {
+        ...where.guest,
+        email: { contains: query.guestEmail, mode: 'insensitive' },
+      };
+    }
+
+    if (query.guestPhone) {
+      where.guest = {
+        ...where.guest,
+        phone: { contains: query.guestPhone },
+      };
+    }
+
+    if (query.bookingNumber) {
+      where.bookingNumber = {
+        contains: query.bookingNumber,
+        mode: 'insensitive',
+      };
+    }
+
+    if (query.checkInFrom) {
+      where.checkInDate = { gte: new Date(query.checkInFrom) };
+    }
+
+    if (query.checkInTo) {
+      where.checkInDate = {
+        ...where.checkInDate,
+        lte: new Date(query.checkInTo),
+      };
+    }
+
+    if (query.checkOutFrom) {
+      where.checkOutDate = { gte: new Date(query.checkOutFrom) };
+    }
+
+    if (query.checkOutTo) {
+      where.checkOutDate = {
+        ...where.checkOutDate,
+        lte: new Date(query.checkOutTo),
+      };
+    }
+
+    const sortBy = query.sortBy || 'createdAt';
+    const sortOrder = query.sortOrder || 'desc';
+
+    const [bookings, totalItems] = await Promise.all([
+      this.prisma.booking.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
+        include: {
+          guest: true,
+          roomBookings: {
+            include: {
+              room: {
+                include: { roomType: true },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.booking.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    const data = bookings.map((booking) => {
+      const numberOfNights = dayjs(booking.checkOutDate).diff(
+        dayjs(booking.checkInDate),
+        'day',
+      );
+
+      // Get room type from first room booking if available
+      const firstRoomBooking = booking.roomBookings[0];
+      const roomType = firstRoomBooking?.room?.roomType;
+
+      return {
+        id: booking.id,
+        bookingNumber: booking.bookingNumber,
+        guest: {
+          id: booking.guest.id,
+          fullName: `${booking.guest.firstName} ${booking.guest.lastName}`,
+          email: booking.guest.email,
+          phone: booking.guest.phone || '',
+        },
+        checkInDate: booking.checkInDate,
+        checkOutDate: booking.checkOutDate,
+        numberOfNights,
+        numberOfGuests: booking.numberOfGuests,
+        roomType: roomType
+          ? {
+              id: roomType.id,
+              name: (roomType.name as string) || 'Unknown',
+            }
+          : null,
+        numberOfRooms: Math.ceil(
+          booking.totalAmount / (roomType?.basePrice || 1) / numberOfNights ||
+            1,
+        ),
+        assignedRooms: booking.roomBookings.length,
+        totalAmount: booking.totalAmount,
+        status: booking.status,
+        createdAt: booking.createdAt,
+      };
+    });
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  async getBookingDetail(id: string): Promise<BookingDetailResponse> {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id },
+      include: {
+        guest: true,
+        roomBookings: {
+          include: {
+            room: {
+              include: { roomType: true },
+            },
+          },
+        },
+        payments: true,
+        createdBy: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException(`Booking with ID ${id} not found`);
+    }
+
+    const numberOfNights = dayjs(booking.checkOutDate).diff(
+      dayjs(booking.checkInDate),
+      'day',
+    );
+
+    // Get room type from first room booking if available
+    const firstRoomBooking = booking.roomBookings[0];
+    const roomType = firstRoomBooking?.room?.roomType;
+
+    // Calculate number of rooms from total amount or count room bookings
+    const numberOfRooms =
+      booking.roomBookings.length > 0
+        ? booking.roomBookings.length
+        : Math.ceil(
+            booking.totalAmount / (roomType?.basePrice || 1) / numberOfNights ||
+              1,
+          );
+
+    return {
+      id: booking.id,
+      bookingNumber: booking.bookingNumber,
+      guest: {
+        id: booking.guest.id,
+        fullName: `${booking.guest.firstName} ${booking.guest.lastName}`,
+        email: booking.guest.email,
+        phone: booking.guest.phone || '',
+        whatsapp: booking.guest.whatsapp
+          ? String(booking.guest.whatsapp)
+          : undefined,
+        totalStays: booking.guest.totalStays,
+        totalSpent: booking.guest.totalSpent,
+      },
+      checkInDate: booking.checkInDate,
+      checkOutDate: booking.checkOutDate,
+      numberOfNights,
+      actualCheckIn: booking.actualCheckIn || undefined,
+      actualCheckOut: booking.actualCheckOut || undefined,
+      roomType: roomType
+        ? {
+            id: roomType.id,
+            name: (roomType.name as string) || 'Unknown',
+            description: (roomType.description as string) || '',
+            basePrice: roomType.basePrice,
+            capacity: roomType.capacity,
+            bedType: roomType.bedType,
+            amenities: (roomType.amenities as string[]) || [],
+          }
+        : null,
+      numberOfRooms,
+      assignedRooms: booking.roomBookings.map((rb) => ({
+        id: rb.id,
+        roomId: rb.roomId,
+        roomNumber: rb.room.roomNumber,
+        floor: rb.room.floor,
+        roomRate: rb.roomRate,
+        status: rb.status,
+        assignedAt: rb.createdAt,
+      })),
+      numberOfGuests: booking.numberOfGuests,
+      numberOfChildren: booking.numberOfChildren,
+      priceBreakdown: {
+        totalPrice: booking.totalAmount,
+        cityTax: booking.taxAmount,
+        vat: booking.serviceCharges,
+        netAmount:
+          booking.totalAmount - booking.taxAmount - booking.serviceCharges,
+        discountAmount: booking.discountAmount,
+      },
+      payments: booking.payments.map((p) => ({
+        id: p.id,
+        amount: p.amount,
+        method: p.paymentMethod,
+        status: p.status,
+        paidAt: p.paidAt || undefined,
+      })),
+      status: booking.status,
+      specialRequests: booking.specialRequests || undefined,
+      notes: booking.notes || undefined,
+      source: booking.source || undefined,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt,
+      createdBy: booking.createdBy
+        ? {
+            id: booking.createdBy.id,
+            name: `${booking.createdBy.firstName} ${booking.createdBy.lastName}`,
+          }
+        : undefined,
+    };
+  }
+
+  async assignRooms(
+    bookingId: string,
+    dto: AssignRoomsDto,
+  ): Promise<BookingDetailResponse> {
+    // 1. Get booking and validate
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        roomBookings: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException(`Booking with ID ${bookingId} not found`);
+    }
+
+    if (booking.status !== BookingStatus.PENDING) {
+      throw new BadRequestException(
+        'Can only assign rooms to PENDING bookings',
+      );
+    }
+
+    // Calculate expected number of rooms from booking amount
+    const numberOfNights = dayjs(booking.checkOutDate).diff(
+      dayjs(booking.checkInDate),
+      'day',
+    );
+    const expectedRooms = Math.ceil(
+      booking.totalAmount / numberOfNights / 2000,
+    ); // Assuming average price, will improve
+
+    if (dto.roomIds.length !== expectedRooms) {
+      throw new BadRequestException(
+        `Number of rooms (${dto.roomIds.length}) does not match booking requirement (${expectedRooms})`,
+      );
+    }
+
+    // 2. Validate all rooms
+    const rooms = await this.prisma.room.findMany({
+      where: { id: { in: dto.roomIds } },
+      include: { roomType: true },
+    });
+
+    if (rooms.length !== dto.roomIds.length) {
+      throw new BadRequestException('One or more rooms not found');
+    }
+
+    // Check all rooms are AVAILABLE
+    const unavailableRooms = rooms.filter(
+      (r) => r.status !== RoomStatus.AVAILABLE,
+    );
+    if (unavailableRooms.length > 0) {
+      throw new BadRequestException(
+        `Rooms ${unavailableRooms.map((r) => r.roomNumber).join(', ')} are not available`,
+      );
+    }
+
+    // 3. Check for booking conflicts
+    await this.validateRoomsAvailability(
+      dto.roomIds,
+      booking.checkInDate,
+      booking.checkOutDate,
+    );
+
+    // 4. Create room assignments in transaction
+    await this.prisma.$transaction(async (tx) => {
+      // Create RoomBooking records
+      const roomBookings = dto.roomIds.map((roomId) => {
+        const room = rooms.find((r) => r.id === roomId)!;
+        return {
+          roomId,
+          bookingId,
+          roomRate: room.roomType.basePrice,
+          checkInDate: booking.checkInDate,
+          checkOutDate: booking.checkOutDate,
+          status: RoomBookingStatus.ASSIGNED,
+          notes: dto.notes,
+        };
+      });
+
+      await tx.roomBooking.createMany({ data: roomBookings });
+
+      // Update room status to OCCUPIED
+      await tx.room.updateMany({
+        where: { id: { in: dto.roomIds } },
+        data: { status: RoomStatus.OCCUPIED },
+      });
+
+      // Update booking status to CONFIRMED
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: { status: BookingStatus.CONFIRMED },
+      });
+    });
+
+    return this.getBookingDetail(bookingId);
+  }
+
+  async checkIn(
+    bookingId: string,
+    dto: CheckInDto,
+  ): Promise<BookingDetailResponse> {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        roomBookings: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException(`Booking with ID ${bookingId} not found`);
+    }
+
+    if (booking.status !== BookingStatus.CONFIRMED) {
+      throw new BadRequestException('Booking must be CONFIRMED to check in');
+    }
+
+    if (!booking.roomBookings || booking.roomBookings.length === 0) {
+      throw new BadRequestException('No rooms assigned to this booking');
+    }
+
+    const checkInTime = dto.actualCheckInTime
+      ? new Date(dto.actualCheckInTime)
+      : new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      // Update booking
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: BookingStatus.CHECKED_IN,
+          actualCheckIn: checkInTime,
+          notes: dto.notes || booking.notes,
+        },
+      });
+
+      // Update room bookings
+      await tx.roomBooking.updateMany({
+        where: { bookingId },
+        data: { status: RoomBookingStatus.CHECKED_IN },
+      });
+
+      // Update room status to OCCUPIED
+      const roomIds = booking.roomBookings.map((rb) => rb.roomId);
+      await tx.room.updateMany({
+        where: { id: { in: roomIds } },
+        data: { status: RoomStatus.OCCUPIED },
+      });
+    });
+
+    return this.getBookingDetail(bookingId);
+  }
+
+  async checkOut(
+    bookingId: string,
+    dto: CheckOutDto,
+  ): Promise<BookingDetailResponse> {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        roomBookings: true,
+        guest: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException(`Booking with ID ${bookingId} not found`);
+    }
+
+    if (booking.status !== BookingStatus.CHECKED_IN) {
+      throw new BadRequestException('Booking must be CHECKED_IN to check out');
+    }
+
+    const checkOutTime = dto.actualCheckOutTime
+      ? new Date(dto.actualCheckOutTime)
+      : new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      // Update booking
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: BookingStatus.CHECKED_OUT,
+          actualCheckOut: checkOutTime,
+          notes: dto.notes || booking.notes,
+        },
+      });
+
+      // Update room bookings
+      await tx.roomBooking.updateMany({
+        where: { bookingId },
+        data: { status: RoomBookingStatus.CHECKED_OUT },
+      });
+
+      // Update room status to CLEANING
+      const roomIds = booking.roomBookings.map((rb) => rb.roomId);
+      await tx.room.updateMany({
+        where: { id: { in: roomIds } },
+        data: { status: RoomStatus.CLEANING },
+      });
+
+      // Update guest stats
+      await tx.guest.update({
+        where: { id: booking.guestId },
+        data: {
+          totalStays: { increment: 1 },
+          totalSpent: { increment: booking.totalAmount },
+        },
+      });
+    });
+
+    return this.getBookingDetail(bookingId);
   }
 }
