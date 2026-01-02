@@ -29,6 +29,8 @@ model Booking {
   payments           Payment[]
   reviews            Review[]
   roomBookings       RoomBooking[]
+  roomTypeId        String
+  roomType          RoomType   @relation("BookingRoomType", fields: [roomTypeId], references: [id])
 
   @@index([checkInDate])
   @@index([checkOutDate])

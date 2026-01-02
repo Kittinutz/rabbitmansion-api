@@ -81,6 +81,14 @@ export class BookingService {
       0,
     );
 
+    // Get roomTypeId from the first room
+    const roomTypeId = roomRates[0]?.roomTypeId;
+    if (!roomTypeId) {
+      throw new BadRequestException(
+        'Unable to determine room type for booking',
+      );
+    }
+
     // Calculate taxes and service charges (10% tax, 7% service)
     const taxAmount = totalRoomAmount * 0.1;
     const serviceCharges = totalRoomAmount * 0.07;
@@ -101,6 +109,7 @@ export class BookingService {
           serviceCharges,
           finalAmount,
           status: BookingStatus.PENDING,
+          roomTypeId,
         },
       });
 
@@ -431,6 +440,7 @@ export class BookingService {
         where: { id: { in: roomIds } },
         select: {
           id: true,
+          roomTypeId: true,
           roomType: {
             select: {
               basePrice: true,
@@ -441,6 +451,7 @@ export class BookingService {
       .then((rooms) =>
         rooms.map((room) => ({
           roomId: room.id,
+          roomTypeId: room.roomTypeId,
           basePrice: room.roomType.basePrice,
         })),
       );
@@ -607,6 +618,7 @@ export class BookingService {
           finalAmount: priceBreakdown.totalPrice,
           status: BookingStatus.PENDING,
           notes: dto.note,
+          roomTypeId: roomType.id,
         },
       });
 
@@ -653,7 +665,12 @@ export class BookingService {
       numberOfNights,
       roomType: {
         id: roomType.id,
-        name: (roomType.name as string) || 'Unknown',
+        name:
+          typeof roomType.name === 'string'
+            ? roomType.name
+            : (roomType.name as any)?.en ||
+              (roomType.name as any)?.th ||
+              'Unknown',
         ratePerNight: roomType.basePrice,
       },
       numberOfRooms,
@@ -735,7 +752,12 @@ export class BookingService {
           roomType: roomType
             ? {
                 id: roomType.id,
-                name: (roomType.name as string) || 'Unknown',
+                name:
+                  typeof roomType.name === 'string'
+                    ? roomType.name
+                    : (roomType.name as any)?.en ||
+                      (roomType.name as any)?.th ||
+                      'Unknown',
               }
             : null,
           numberOfRooms: Math.ceil(
@@ -868,7 +890,12 @@ export class BookingService {
         roomType: roomType
           ? {
               id: roomType.id,
-              name: (roomType.name as string) || 'Unknown',
+              name:
+                typeof roomType.name === 'string'
+                  ? roomType.name
+                  : (roomType.name as any)?.en ||
+                    (roomType.name as any)?.th ||
+                    'Unknown',
             }
           : null,
         numberOfRooms: Math.ceil(
@@ -907,6 +934,7 @@ export class BookingService {
             },
           },
         },
+        roomType: true,
         payments: true,
         createdBy: true,
       },
@@ -922,16 +950,15 @@ export class BookingService {
     );
 
     // Get room type from first room booking if available
-    const firstRoomBooking = booking.roomBookings[0];
-    const roomType = firstRoomBooking?.room?.roomType;
-
+    const roomType = booking?.roomType as RoomType;
     // Calculate number of rooms from total amount or count room bookings
     const numberOfRooms =
       booking.roomBookings.length > 0
         ? booking.roomBookings.length
         : Math.ceil(
-            booking.totalAmount / (roomType?.basePrice || 1) / numberOfNights ||
-              1,
+            booking.totalAmount /
+              (booking.roomType?.basePrice || 1) /
+              numberOfNights || 1,
           );
 
     return {
@@ -956,12 +983,22 @@ export class BookingService {
       roomType: roomType
         ? {
             id: roomType.id,
-            name: (roomType.name as string) || 'Unknown',
-            description: (roomType.description as string) || '',
+            name:
+              typeof roomType.name === 'string'
+                ? roomType.name
+                : (roomType.name as any)?.en ||
+                  (roomType.name as any)?.th ||
+                  'Unknown',
+            description:
+              typeof roomType.description === 'string'
+                ? roomType.description
+                : (roomType.description as any)?.en ||
+                  (roomType.description as any)?.th ||
+                  '',
             basePrice: roomType.basePrice,
             capacity: roomType.capacity,
             bedType: roomType.bedType,
-            amenities: (roomType.amenities as string[]) || [],
+            amenities: roomType.amenities || [],
           }
         : null,
       numberOfRooms,
@@ -1000,7 +1037,7 @@ export class BookingService {
       createdBy: booking.createdBy
         ? {
             id: booking.createdBy.id,
-            name: `${booking.createdBy.firstName} ${booking.createdBy.lastName}`,
+            name: `${booking.createdBy.firstName} ${booking.createdBy.lastName}` as string,
           }
         : undefined,
     };

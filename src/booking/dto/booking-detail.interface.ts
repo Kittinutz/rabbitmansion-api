@@ -1,4 +1,7 @@
-import { BookingStatus, RoomBookingStatus } from '../../../prisma/generated/prisma';
+import {
+  BookingStatus,
+  RoomBookingStatus,
+} from '../../../prisma/generated/prisma';
 
 export interface BookingDetailResponse {
   id: string;

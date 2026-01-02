@@ -22,6 +22,7 @@ model RoomType {
   amenities       AmenitiesEnum[]
   roomImages      RoomImage[]
   rooms           Room[]
+  bookings        Booking[]       @relation("BookingRoomType")
 
   @@index([code])
   @@index([isActive])

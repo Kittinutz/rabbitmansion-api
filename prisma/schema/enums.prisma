@@ -35,6 +35,7 @@ enum PaymentMethod {
   DEBIT_CARD
   CASH
   BANK_TRANSFER
+  QR_CODE
   MOBILE_PAYMENT
 }
 

@@ -33,6 +33,8 @@ Table bookings {
   payments payments [not null]
   reviews reviews [not null]
   roomBookings room_bookings [not null]
+  roomTypeId String [not null]
+  roomType RoomType [not null]
 }
 
 Table room_bookings {
@@ -149,6 +151,7 @@ Table RoomType {
   amenities AmenitiesEnum[] [not null]
   roomImages room_images [not null]
   rooms rooms [not null]
+  bookings bookings [not null]
 }
 
 Table rooms {
@@ -410,6 +413,8 @@ Ref: bookings.createdById > admins.id
 Ref: bookings.guestId > guests.id
 
 Ref: bookings.updatedById > admins.id
+
+Ref: bookings.roomTypeId > RoomType.id
 
 Ref: room_bookings.roomId > rooms.id [delete: Cascade]
 
