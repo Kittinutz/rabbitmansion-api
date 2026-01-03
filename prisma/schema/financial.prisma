@@ -7,6 +7,7 @@ model Payment {
   status          PaymentStatus @default(PENDING)
   transactionId   String?
   gatewayResponse Json?
+  paymentDetails  Json?         // SCB QR data, webhook data, refund info, etc.
   paidAt          DateTime?
   description     String?
   notes           String?
@@ -17,6 +18,7 @@ model Payment {
 
   @@index([bookingId])
   @@index([paymentMethod])
+  @@index([status])
   @@map("payments")
 }
 

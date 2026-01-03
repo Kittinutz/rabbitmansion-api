@@ -92,6 +92,7 @@ Table payments {
   status PaymentStatus [not null, default: 'PENDING']
   transactionId String
   gatewayResponse Json
+  paymentDetails Json
   paidAt DateTime
   description String
   notes String
@@ -338,6 +339,7 @@ Enum PaymentMethod {
   DEBIT_CARD
   CASH
   BANK_TRANSFER
+  QR_CODE
   MOBILE_PAYMENT
 }
 

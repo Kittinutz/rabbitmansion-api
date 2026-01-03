@@ -11,6 +11,7 @@ import { RoomTypeController } from './room-type/room-type.controller';
 import { RoomTypeService } from './room-type/room-type.service';
 import { BookingController } from './booking/booking.controller';
 import { BookingService } from './booking/booking.service';
+import { ScbModule } from './payment/scb/scb.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { BookingService } from './booking/booking.service';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ScbModule,
   ],
   controllers: [
     AppController,
