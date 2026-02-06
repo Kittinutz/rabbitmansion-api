@@ -11,6 +11,24 @@ model Payment {
   paidAt          DateTime?
   description     String?
   notes           String?
+  
+  // Stripe-specific fields
+  stripePaymentIntentId  String?   @unique
+  stripeCustomerId       String?
+  stripePaymentMethodId  String?
+  stripeChargeId         String?
+  
+  // Card details (if applicable)
+  cardLast4       String?
+  cardBrand       String?
+  cardCountry     String?
+  cardExpMonth    Int?
+  cardExpYear     Int?
+  
+  // 3D Secure
+  requiresAction  Boolean       @default(false)
+  clientSecret    String?
+  
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   booking         Booking       @relation(fields: [bookingId], references: [id])
@@ -19,24 +37,48 @@ model Payment {
   @@index([bookingId])
   @@index([paymentMethod])
   @@index([status])
+  @@index([stripePaymentIntentId])
+  @@index([stripeCustomerId])
   @@map("payments")
 }
 
 model Refund {
-  id          String       @id @default(uuid())
-  paymentId   String
-  amount      Float
-  reason      String
-  status      RefundStatus @default(PENDING)
-  processedAt DateTime?
-  notes       String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  payment     Payment      @relation(fields: [paymentId], references: [id])
+  id             String       @id @default(uuid())
+  paymentId      String
+  amount         Float
+  reason         String
+  status         RefundStatus @default(PENDING)
+  processedAt    DateTime?
+  notes          String?
+  stripeRefundId String?      // Stripe refund ID
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  payment        Payment      @relation(fields: [paymentId], references: [id])
 
   @@index([paymentId])
   @@index([status])
   @@map("refunds")
+}
+
+model SavedCard {
+  id                    String   @id @default(uuid())
+  guestId               String
+  stripeCustomerId      String
+  stripePaymentMethodId String   @unique
+  cardLast4             String
+  cardBrand             String
+  cardExpMonth          Int
+  cardExpYear           Int
+  cardCountry           String?
+  isDefault             Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  guest                 Guest    @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  
+  @@index([guestId])
+  @@index([stripeCustomerId])
+  @@map("saved_cards")
 }
 
 model DailyRevenue {

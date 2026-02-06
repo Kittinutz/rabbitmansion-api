@@ -42,6 +42,7 @@ model Guest {
   bookings       Booking[]
   loyaltyProgram LoyaltyProgram?
   reviews        Review[]
+  savedCards     SavedCard[]
 
   @@map("guests")
 }
